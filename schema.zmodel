@@ -1,0 +1,92 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+plugin openapi {
+  provider = "@zenstackhq/openapi"
+  flavor = "rpc"
+  output = "doc/openapi.json"
+  omitInputDetails = true
+}
+
+plugin hooks {
+  provider = "@zenstackhq/tanstack-query"
+  target = "react"
+  version = "v5"
+  output = "../ai-pos-app/src/_/hook"
+  portable = true
+}
+
+enum OrderStatus {
+  OPEN
+  PAID
+  CANCELLED
+}
+
+enum AiDraftStatus {
+  DRAFT
+  CONFIRMED
+  DISCARDED
+}
+
+model Product {
+  id         String      @id @default(cuid())
+  name       String
+  category   String?
+  price      Decimal     @db.Decimal(10, 2)
+  currency   String      @default("USD")
+  isActive   Boolean     @default(true)
+  orderItems OrderItem[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  @@allow("all", true)
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  orderNumber String      @unique
+  status      OrderStatus @default(OPEN)
+  currency    String      @default("USD")
+  subtotal    Decimal     @db.Decimal(10, 2)
+  tax         Decimal     @default(0) @db.Decimal(10, 2)
+  tip         Decimal     @default(0) @db.Decimal(10, 2)
+  total       Decimal     @db.Decimal(10, 2)
+  paidAt      DateTime?
+  items       OrderItem[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@allow("all", true)
+}
+
+model OrderItem {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+  productId String
+  product   Product  @relation(fields: [productId], references: [id])
+  quantity  Int
+  unitPrice Decimal  @db.Decimal(10, 2)
+  lineTotal Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+
+  @@allow("all", true)
+}
+
+model AiDraft {
+  id             String        @id @default(cuid())
+  prompt         String        @db.Text
+  structuredJson Json
+  status         AiDraftStatus @default(DRAFT)
+  confirmedAt    DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@allow("all", true)
+}
