@@ -7,6 +7,7 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
+    "test": "node --import tsx --import tsconfig-paths/register --test \"src/**/*.test.ts\"",
     "typecheck": "tsc --noEmit",
     "zen": "zenstack generate && prisma db push",
     "zen:generate": "zenstack generate",
@@ -44,6 +45,7 @@
     "ts-loader": "^9.5.4",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
+    "tsx": "^4.22.3",
     "typescript": "^5.9.3",
     "zenstack": "2.22.1"
   },
