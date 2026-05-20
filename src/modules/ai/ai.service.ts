@@ -60,54 +60,57 @@ export class AiService {
     });
     const existingByName = new Map(existing.map((product) => [product.name.toLowerCase(), product]));
 
-    const result = await this.prisma.$transaction(async (tx) => {
-      const products = [];
+    const result = await this.prisma.$transaction(
+      async (tx) => {
+        const products = [];
 
-      for (const item of menu.items) {
-        const existingProduct = existingByName.get(item.name.toLowerCase());
-        if (existingProduct?.isActive) {
-          products.push(existingProduct);
-          continue;
-        }
+        for (const item of menu.items) {
+          const existingProduct = existingByName.get(item.name.toLowerCase());
+          if (existingProduct?.isActive) {
+            products.push(existingProduct);
+            continue;
+          }
 
-        if (existingProduct && dto.restoreInactiveDuplicates) {
-          const restored = await tx.product.update({
-            where: { id: existingProduct.id },
+          if (existingProduct && dto.restoreInactiveDuplicates) {
+            const restored = await tx.product.update({
+              where: { id: existingProduct.id },
+              data: {
+                category: item.category,
+                price: item.price,
+                currency: item.currency,
+                isActive: true,
+              },
+            });
+            products.push(restored);
+            continue;
+          }
+
+          const created = await tx.product.create({
             data: {
+              name: item.name,
               category: item.category,
               price: item.price,
               currency: item.currency,
-              isActive: true,
             },
           });
-          products.push(restored);
-          continue;
+          products.push(created);
         }
 
-        const created = await tx.product.create({
+        const confirmed = await tx.aiDraft.update({
+          where: { id },
           data: {
-            name: item.name,
-            category: item.category,
-            price: item.price,
-            currency: item.currency,
+            status: AiDraftStatus.CONFIRMED,
+            confirmedAt: new Date(),
           },
         });
-        products.push(created);
-      }
 
-      const confirmed = await tx.aiDraft.update({
-        where: { id },
-        data: {
-          status: AiDraftStatus.CONFIRMED,
-          confirmedAt: new Date(),
-        },
-      });
-
-      return {
-        draft: confirmed,
-        products,
-      };
-    });
+        return {
+          draft: confirmed,
+          products,
+        };
+      },
+      { timeout: 15_000 },
+    );
 
     return {
       draft: presentAiDraft(result.draft),
