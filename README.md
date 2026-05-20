@@ -21,6 +21,26 @@ pnpm start:dev
 pnpm build
 ```
 
+## Deployment
+
+GitHub Actions deployment is defined in `.github/workflows/deploy.yml`.
+
+Required GitHub secrets:
+
+- `DEPLOY_HOST`
+- `DEPLOY_USER`
+- `DEPLOY_SSH_KEY`
+- `DATABASE_URL`
+
+Optional repository variables:
+
+- `DEPLOY_PATH` defaults to `/srv/ai-pos-server`
+- `SERVICE_NAME` defaults to `ai-pos-server`
+- `PORT` defaults to `4100`
+
+Production `.env` is written on the server by CI and is never committed.
+Systemd and Nginx starter templates live in `deploy/`.
+
 ## Data Model Workflow
 
 Edit `schema.zmodel`, then run:

@@ -1,0 +1,84 @@
+name: Deploy Server
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-server-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy Nest API
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+
+    env:
+      DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/srv/ai-pos-server' }}
+      SERVICE_NAME: ${{ vars.SERVICE_NAME || 'ai-pos-server' }}
+      PORT: ${{ vars.PORT || '4100' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.1
+          run_install: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate ZenStack artifacts
+        run: pnpm zen:generate
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+      - name: Configure SSH
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Upload release
+        run: |
+          rsync -az --delete \
+            --exclude '.git' \
+            --exclude '.env' \
+            --exclude 'node_modules' \
+            --exclude 'dist' \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            ./ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${DEPLOY_PATH}/"
+
+      - name: Install, migrate, and restart
+        run: |
+          ssh -i ~/.ssh/deploy_key "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+            "set -e
+             cd '${DEPLOY_PATH}'
+             printf '%s\n' 'NODE_ENV=production' > .env
+             printf 'PORT=%s\n' '${PORT}' >> .env
+             printf 'DATABASE_URL=%s\n' '${{ secrets.DATABASE_URL }}' >> .env
+             pnpm install --frozen-lockfile
+             pnpm zen:generate
+             pnpm prisma:push
+             pnpm build
+             sudo systemctl restart '${SERVICE_NAME}'
+             sudo systemctl --no-pager --full status '${SERVICE_NAME}'"

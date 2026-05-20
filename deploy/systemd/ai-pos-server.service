@@ -1,0 +1,14 @@
+[Unit]
+Description=AI POS Server
+After=network.target
+
+[Service]
+WorkingDirectory=/srv/ai-pos-server
+ExecStart=/usr/bin/node dist/main
+Restart=always
+RestartSec=3
+Environment=NODE_ENV=production
+EnvironmentFile=/srv/ai-pos-server/.env
+
+[Install]
+WantedBy=multi-user.target
