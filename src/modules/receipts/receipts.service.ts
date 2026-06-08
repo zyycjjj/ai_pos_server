@@ -25,8 +25,10 @@ export class ReceiptsService {
         id: order.id,
         orderNumber: order.orderNumber,
         status: order.status,
+        printStatus: order.printStatus,
         createdAt: order.createdAt.toISOString(),
         paidAt: order.paidAt?.toISOString() ?? null,
+        printedAt: order.printedAt?.toISOString() ?? null,
       },
       currency: order.currency,
       items: order.items.map((item) => ({

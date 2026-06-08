@@ -34,6 +34,12 @@ export class CheckoutController {
     return this.checkoutService.markPaid(id);
   }
 
+  @Patch('orders/:id/mark-printed')
+  @ApiOperation({ summary: 'Mark a paid order receipt as printed on the POS terminal.' })
+  markPrinted(@Param('id') id: string) {
+    return this.checkoutService.markPrinted(id);
+  }
+
   @Patch('orders/:id/cancel')
   @ApiOperation({ summary: 'Cancel an open order.' })
   cancelOrder(@Param('id') id: string) {

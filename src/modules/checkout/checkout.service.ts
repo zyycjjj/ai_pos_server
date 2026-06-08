@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, PrintStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
 import { multiplyMoney, toMoney } from '@/common/utils/money';
@@ -95,6 +95,24 @@ export class CheckoutService {
       data: {
         status: OrderStatus.PAID,
         paidAt: new Date(),
+      },
+      include: { items: { include: { product: true } } },
+    });
+
+    return presentOrder(updated);
+  }
+
+  async markPrinted(id: string) {
+    const order = await this.findOrder(id);
+    if (order.status !== OrderStatus.PAID) {
+      throw new BadRequestException('Only paid orders can be marked printed.');
+    }
+
+    const updated = await this.prisma.order.update({
+      where: { id },
+      data: {
+        printStatus: PrintStatus.PRINTED,
+        printedAt: new Date(),
       },
       include: { items: { include: { product: true } } },
     });

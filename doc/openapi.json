@@ -36,6 +36,15 @@
           "CANCELLED"
         ]
       },
+      "PrintStatus": {
+        "type": "string",
+        "enum": [
+          "NOT_PRINTED",
+          "PRINTING",
+          "PRINTED",
+          "FAILED"
+        ]
+      },
       "AiDraftStatus": {
         "type": "string",
         "enum": [
@@ -116,6 +125,9 @@
           "status": {
             "$ref": "#/components/schemas/OrderStatus"
           },
+          "printStatus": {
+            "$ref": "#/components/schemas/PrintStatus"
+          },
           "currency": {
             "type": "string"
           },
@@ -170,6 +182,17 @@
               }
             ]
           },
+          "printedAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
           "items": {
             "type": "array",
             "items": {
@@ -189,6 +212,7 @@
           "id",
           "orderNumber",
           "status",
+          "printStatus",
           "currency",
           "subtotal",
           "tax",
@@ -524,6 +548,9 @@
           "status": {
             "$ref": "#/components/schemas/OrderStatus"
           },
+          "printStatus": {
+            "$ref": "#/components/schemas/PrintStatus"
+          },
           "currency": {
             "type": "string"
           },
@@ -568,6 +595,17 @@
             ]
           },
           "paidAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "printedAt": {
             "oneOf": [
               {
                 "type": "null"
@@ -641,6 +679,7 @@
           "id",
           "orderNumber",
           "status",
+          "printStatus",
           "currency",
           "subtotal",
           "tax",
@@ -1183,6 +1222,9 @@
           "status": {
             "type": "integer"
           },
+          "printStatus": {
+            "type": "integer"
+          },
           "currency": {
             "type": "integer"
           },
@@ -1201,6 +1243,9 @@
           "paidAt": {
             "type": "integer"
           },
+          "printedAt": {
+            "type": "integer"
+          },
           "createdAt": {
             "type": "integer"
           },
@@ -1215,12 +1260,14 @@
           "id",
           "orderNumber",
           "status",
+          "printStatus",
           "currency",
           "subtotal",
           "tax",
           "tip",
           "total",
           "paidAt",
+          "printedAt",
           "createdAt",
           "updatedAt",
           "_all"
@@ -1373,6 +1420,16 @@
               }
             ]
           },
+          "printStatus": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PrintStatus"
+              }
+            ]
+          },
           "currency": {
             "oneOf": [
               {
@@ -1436,6 +1493,17 @@
             ]
           },
           "paidAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "printedAt": {
             "oneOf": [
               {
                 "type": "null"
@@ -1503,6 +1571,16 @@
               }
             ]
           },
+          "printStatus": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PrintStatus"
+              }
+            ]
+          },
           "currency": {
             "oneOf": [
               {
@@ -1566,6 +1644,17 @@
             ]
           },
           "paidAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "printedAt": {
             "oneOf": [
               {
                 "type": "null"
