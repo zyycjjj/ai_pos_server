@@ -9,6 +9,7 @@ import { AiModule } from './modules/ai/ai.module';
 import { CheckoutModule } from './modules/checkout/checkout.module';
 import { HealthModule } from './modules/health/health.module';
 import { MetricsModule } from './modules/metrics/metrics.module';
+import { ProductsModule } from './modules/products/products.module';
 import { ReceiptsModule } from './modules/receipts/receipts.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { PrismaService } from './prisma/prisma.service';
@@ -34,6 +35,7 @@ import { useZenFactory } from './zenstack/useZenFactory';
     CheckoutModule,
     ReceiptsModule,
     MetricsModule,
+    ProductsModule,
   ],
 })
 export class AppModule implements NestModule {
