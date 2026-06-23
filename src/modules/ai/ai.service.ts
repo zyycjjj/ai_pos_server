@@ -68,7 +68,7 @@ export class AiService {
         return {
           draftId: draft.id,
           menu,
-          source: 'deepseek',
+          source: 'deepseek' as const,
         };
       }
     } catch {
@@ -86,7 +86,7 @@ export class AiService {
     return {
       draftId: draft.id,
       menu,
-      source: 'mock',
+      source: 'mock' as const,
     };
   }
 

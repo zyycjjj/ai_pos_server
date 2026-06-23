@@ -46,7 +46,7 @@ export class AiCampaignService {
         return {
           draftId: draft.id,
           campaign,
-          source: 'deepseek',
+          source: 'deepseek' as const,
         };
       }
     } catch {
@@ -67,7 +67,7 @@ export class AiCampaignService {
     return {
       draftId: draft.id,
       campaign,
-      source: 'mock',
+      source: 'mock' as const,
     };
   }
 
