@@ -40,6 +40,7 @@ Optional repository variables:
 
 Production `.env` is written on the server by CI and is never committed.
 Systemd and Nginx starter templates live in `deploy/`.
+Deployment trigger check: 2026-06-23.
 
 ## Data Model Workflow
 
