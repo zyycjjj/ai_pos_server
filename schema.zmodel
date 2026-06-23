@@ -35,6 +35,12 @@ enum PrintStatus {
   FAILED
 }
 
+enum PaymentMethod {
+  CASH
+  CARD
+  MANUAL
+}
+
 enum AiDraftStatus {
   DRAFT
   CONFIRMED
@@ -42,34 +48,84 @@ enum AiDraftStatus {
 }
 
 model Product {
-  id         String      @id @default(cuid())
-  name       String
-  category   String?
-  price      Decimal     @db.Decimal(10, 2)
-  currency   String      @default("USD")
-  isActive   Boolean     @default(true)
-  orderItems OrderItem[]
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  id             String                 @id @default(cuid())
+  name           String
+  category       String?
+  price          Decimal                @db.Decimal(10, 2)
+  currency       String                 @default("USD")
+  isActive       Boolean                @default(true)
+  modifierGroups ProductModifierGroup[]
+  orderItems     OrderItem[]
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@allow("all", true)
+}
+
+model ProductModifierGroup {
+  id           String                  @id @default(cuid())
+  productId    String
+  product      Product                 @relation(fields: [productId], references: [id])
+  name         String
+  required     Boolean                 @default(false)
+  multiSelect  Boolean                 @default(false)
+  displayOrder Int                     @default(0)
+  options      ProductModifierOption[]
+  createdAt    DateTime                @default(now())
+  updatedAt    DateTime                @updatedAt
+
+  @@allow("all", true)
+}
+
+model ProductModifierOption {
+  id           String               @id @default(cuid())
+  groupId      String
+  group        ProductModifierGroup @relation(fields: [groupId], references: [id])
+  name         String
+  priceDelta   Decimal              @default(0) @db.Decimal(10, 2)
+  displayOrder Int                  @default(0)
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
 
   @@allow("all", true)
 }
 
 model Order {
-  id          String      @id @default(cuid())
-  orderNumber String      @unique
-  status      OrderStatus @default(OPEN)
-  printStatus PrintStatus @default(NOT_PRINTED)
-  currency    String      @default("USD")
-  subtotal    Decimal     @db.Decimal(10, 2)
-  tax         Decimal     @default(0) @db.Decimal(10, 2)
-  tip         Decimal     @default(0) @db.Decimal(10, 2)
-  total       Decimal     @db.Decimal(10, 2)
-  paidAt      DateTime?
-  printedAt   DateTime?
-  items       OrderItem[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  id              String         @id @default(cuid())
+  orderNumber     String         @unique
+  pickupNumber    String?
+  status          OrderStatus    @default(OPEN)
+  printStatus     PrintStatus    @default(NOT_PRINTED)
+  paymentMethod   PaymentMethod?
+  currency        String         @default("USD")
+  subtotal        Decimal        @db.Decimal(10, 2)
+  adjustment      Decimal        @default(0) @db.Decimal(10, 2)
+  adjustmentType  String?
+  adjustmentValue Decimal?       @db.Decimal(10, 2)
+  tax             Decimal        @default(0) @db.Decimal(10, 2)
+  tip             Decimal        @default(0) @db.Decimal(10, 2)
+  total           Decimal        @db.Decimal(10, 2)
+  cashReceived    Decimal?       @db.Decimal(10, 2)
+  changeDue       Decimal?       @db.Decimal(10, 2)
+  paidAt          DateTime?
+  printedAt       DateTime?
+  items           OrderItem[]
+  payments        OrderPayment[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@allow("all", true)
+}
+
+model OrderPayment {
+  id             String        @id @default(cuid())
+  orderId        String
+  order          Order         @relation(fields: [orderId], references: [id])
+  method         PaymentMethod
+  amount         Decimal       @db.Decimal(10, 2)
+  amountReceived Decimal?      @db.Decimal(10, 2)
+  changeDue      Decimal?      @db.Decimal(10, 2)
+  createdAt      DateTime      @default(now())
 
   @@allow("all", true)
 }
@@ -83,6 +139,7 @@ model OrderItem {
   quantity  Int
   unitPrice Decimal  @db.Decimal(10, 2)
   lineTotal Decimal  @db.Decimal(10, 2)
+  modifiers Json?
   createdAt DateTime @default(now())
 
   @@allow("all", true)

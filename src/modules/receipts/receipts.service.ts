@@ -10,7 +10,7 @@ export class ReceiptsService {
   async getReceiptForOrder(orderId: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      include: { items: { include: { product: true } } },
+      include: { items: { include: { product: true } }, payments: true },
     });
     if (!order) {
       throw new NotFoundException('Order not found.');
@@ -24,8 +24,10 @@ export class ReceiptsService {
       order: {
         id: order.id,
         orderNumber: order.orderNumber,
+        pickupNumber: order.pickupNumber,
         status: order.status,
         printStatus: order.printStatus,
+        paymentMethod: order.paymentMethod,
         createdAt: order.createdAt.toISOString(),
         paidAt: order.paidAt?.toISOString() ?? null,
         printedAt: order.printedAt?.toISOString() ?? null,
@@ -36,13 +38,23 @@ export class ReceiptsService {
         quantity: item.quantity,
         unitPrice: toMoneyNumber(item.unitPrice),
         lineTotal: toMoneyNumber(item.lineTotal),
+        modifiers: item.modifiers ?? [],
       })),
       totals: {
         subtotal: toMoneyNumber(order.subtotal),
+        adjustment: toMoneyNumber(order.adjustment),
         tax: toMoneyNumber(order.tax),
         tip: toMoneyNumber(order.tip),
         total: toMoneyNumber(order.total),
+        cashReceived: order.cashReceived === null ? null : toMoneyNumber(order.cashReceived),
+        changeDue: order.changeDue === null ? null : toMoneyNumber(order.changeDue),
       },
+      payments: order.payments.map((payment) => ({
+        method: payment.method,
+        amount: toMoneyNumber(payment.amount),
+        amountReceived: payment.amountReceived === null ? null : toMoneyNumber(payment.amountReceived),
+        changeDue: payment.changeDue === null ? null : toMoneyNumber(payment.changeDue),
+      })),
       footer: {
         message: 'Thank you',
         qrPayload: `ai-pos://orders/${order.id}`,
