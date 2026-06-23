@@ -2,9 +2,28 @@ import { Injectable } from '@nestjs/common';
 
 import type { GenerateMenuDto } from './dto/generate-menu.dto';
 
+type DeepSeekMessage = {
+  role: 'system' | 'user';
+  content: string;
+};
+
 @Injectable()
 export class DeepSeekMenuService {
   async generate(dto: GenerateMenuDto) {
+    return this.completeJson([
+      {
+        role: 'system',
+        content:
+          'You generate POS menus as strict JSON only. Return categories and products. Products may include modifierGroups. No markdown.',
+      },
+      {
+        role: 'user',
+        content: this.buildPrompt(dto),
+      },
+    ]);
+  }
+
+  async completeJson(messages: DeepSeekMessage[]) {
     const apiKey = process.env.DEEPSEEK_API_KEY?.trim();
     if (!apiKey) {
       return null;
@@ -21,17 +40,7 @@ export class DeepSeekMenuService {
       body: JSON.stringify({
         model,
         response_format: { type: 'json_object' },
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You generate POS menus as strict JSON only. Return categories and products. Products may include modifierGroups. No markdown.',
-          },
-          {
-            role: 'user',
-            content: this.buildPrompt(dto),
-          },
-        ],
+        messages,
         temperature: 0.5,
       }),
     });
