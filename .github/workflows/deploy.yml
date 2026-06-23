@@ -22,6 +22,9 @@ jobs:
       DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/srv/ai-pos-server' }}
       SERVICE_NAME: ${{ vars.SERVICE_NAME || 'ai-pos-server' }}
       PORT: ${{ vars.PORT || '4100' }}
+      SSH_PORT: ${{ vars.SSH_PORT || '22' }}
+      DEEPSEEK_BASE_URL: ${{ vars.DEEPSEEK_BASE_URL || 'https://api.deepseek.com' }}
+      DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL || 'deepseek-chat' }}
 
     steps:
       - name: Checkout
@@ -56,7 +59,7 @@ jobs:
           install -m 700 -d ~/.ssh
           printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -p "${SSH_PORT}" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
 
       - name: Upload release
         run: |
@@ -65,17 +68,20 @@ jobs:
             --exclude '.env' \
             --exclude 'node_modules' \
             --exclude 'dist' \
-            -e "ssh -i ~/.ssh/deploy_key" \
+            -e "ssh -i ~/.ssh/deploy_key -p ${SSH_PORT}" \
             ./ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${DEPLOY_PATH}/"
 
       - name: Install, migrate, and restart
         run: |
-          ssh -i ~/.ssh/deploy_key "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+          ssh -i ~/.ssh/deploy_key -p "${SSH_PORT}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
             "set -e
              cd '${DEPLOY_PATH}'
              printf '%s\n' 'NODE_ENV=production' > .env
              printf 'PORT=%s\n' '${PORT}' >> .env
              printf 'DATABASE_URL=%s\n' '${{ secrets.DATABASE_URL }}' >> .env
+             printf 'DEEPSEEK_API_KEY=%s\n' '${{ secrets.DEEPSEEK_API_KEY }}' >> .env
+             printf 'DEEPSEEK_BASE_URL=%s\n' '${DEEPSEEK_BASE_URL}' >> .env
+             printf 'DEEPSEEK_MODEL=%s\n' '${DEEPSEEK_MODEL}' >> .env
              pnpm install --frozen-lockfile
              pnpm zen:generate
              pnpm prisma:push
