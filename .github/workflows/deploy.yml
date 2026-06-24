@@ -141,7 +141,19 @@ jobs:
              printf 'DEEPSEEK_API_KEY=%s\n' '${{ secrets.DEEPSEEK_API_KEY }}' >> .env
              printf 'DEEPSEEK_BASE_URL=%s\n' '${DEEPSEEK_BASE_URL}' >> .env
              printf 'DEEPSEEK_MODEL=%s\n' '${DEEPSEEK_MODEL}' >> .env
-             corepack enable
+             echo 'Remote deployment toolchain:'
+             command -v node
+             node -v
+             if ! command -v pnpm >/dev/null 2>&1; then
+               echo 'pnpm is not available on the server.'
+               echo 'Initialize the server once as an administrator:'
+               echo 'sudo corepack enable'
+               echo 'sudo corepack prepare pnpm@9.15.1 --activate'
+               echo 'pnpm -v'
+               exit 1
+             fi
+             command -v pnpm
+             pnpm -v
              pnpm install --frozen-lockfile
              pnpm zen:generate
              pnpm prisma:push
