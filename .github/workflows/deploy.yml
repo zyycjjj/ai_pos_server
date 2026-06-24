@@ -19,10 +19,12 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
 
     env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
       DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/srv/ai-pos-server' }}
       SERVICE_NAME: ${{ vars.SERVICE_NAME || 'ai-pos-server' }}
       PORT: ${{ vars.PORT || '4100' }}
-      SSH_PORT: ${{ vars.SSH_PORT || '22' }}
+      SSH_PORT: ${{ secrets.DEPLOY_PORT || vars.SSH_PORT || '22' }}
       DEEPSEEK_BASE_URL: ${{ vars.DEEPSEEK_BASE_URL || 'https://api.deepseek.com' }}
       DEEPSEEK_MODEL: ${{ vars.DEEPSEEK_MODEL || 'deepseek-chat' }}
 
@@ -54,18 +56,69 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Configure SSH
+      - name: Validate deployment configuration
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: |
+          set -euo pipefail
+          missing=()
+          [ -z "${DEPLOY_HOST:-}" ] && missing+=("DEPLOY_HOST")
+          [ -z "${DEPLOY_USER:-}" ] && missing+=("DEPLOY_USER")
+          [ -z "${DEPLOY_SSH_KEY:-}" ] && missing+=("DEPLOY_SSH_KEY")
+          [ -z "${DATABASE_URL:-}" ] && missing+=("DATABASE_URL")
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "Missing required GitHub Secrets: ${missing[*]}"
+            exit 1
+          fi
+
+          echo "DEPLOY_HOST set"
+          echo "DEPLOY_USER set"
+          echo "SSH_PORT=${SSH_PORT}"
+          echo "DEPLOY_PATH=${DEPLOY_PATH}"
+          echo "SERVICE_NAME=${SERVICE_NAME}"
+          echo "PORT=${PORT}"
+
+      - name: Add SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Configure known hosts
+        run: |
+          set -euo pipefail
           install -m 700 -d ~/.ssh
-          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p "${SSH_PORT}" -H "${{ secrets.DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -p "${SSH_PORT}" -H "${DEPLOY_HOST}" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          test -f ~/.ssh/known_hosts
+          ls -l ~/.ssh/known_hosts
+          ssh-add -l
+
+      - name: SSH preflight
+        run: |
+          set -euo pipefail
+          ssh \
+            -o BatchMode=yes \
+            -o ConnectTimeout=10 \
+            -o StrictHostKeyChecking=yes \
+            -p "${SSH_PORT}" \
+            "${DEPLOY_USER}@${DEPLOY_HOST}" \
+            "echo SSH_AUTH_OK"
 
       - name: Prepare remote directory
         run: |
-          ssh -i ~/.ssh/deploy_key -p "${SSH_PORT}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+          ssh -o BatchMode=yes -p "${SSH_PORT}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "set -e
-             mkdir -p '${DEPLOY_PATH}'"
+             mkdir -p '${DEPLOY_PATH}' 2>/dev/null || true
+             if [ ! -d '${DEPLOY_PATH}' ]; then
+               sudo -n mkdir -p '${DEPLOY_PATH}'
+             fi
+             if [ ! -w '${DEPLOY_PATH}' ]; then
+               sudo -n chown -R '${DEPLOY_USER}':'${DEPLOY_USER}' '${DEPLOY_PATH}'
+             fi
+             test -d '${DEPLOY_PATH}'
+             test -w '${DEPLOY_PATH}'
+             echo DEPLOY_PATH_READY"
 
       - name: Upload release
         run: |
@@ -74,12 +127,12 @@ jobs:
             --exclude '.env' \
             --exclude 'node_modules' \
             --exclude 'dist' \
-            -e "ssh -i ~/.ssh/deploy_key -p ${SSH_PORT}" \
-            ./ "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}:${DEPLOY_PATH}/"
+            -e "ssh -o BatchMode=yes -p ${SSH_PORT}" \
+            ./ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/"
 
       - name: Install, migrate, and restart
         run: |
-          ssh -i ~/.ssh/deploy_key -p "${SSH_PORT}" "${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }}" \
+          ssh -o BatchMode=yes -p "${SSH_PORT}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "set -e
              cd '${DEPLOY_PATH}'
              printf '%s\n' 'NODE_ENV=production' > .env
@@ -93,5 +146,8 @@ jobs:
              pnpm zen:generate
              pnpm prisma:push
              pnpm build
-             sudo systemctl restart '${SERVICE_NAME}'
-             sudo systemctl --no-pager --full status '${SERVICE_NAME}'"
+             sudo -n cp 'deploy/systemd/ai-pos-server.service' '/etc/systemd/system/${SERVICE_NAME}.service'
+             sudo -n systemctl daemon-reload
+             sudo -n systemctl enable '${SERVICE_NAME}'
+             sudo -n systemctl restart '${SERVICE_NAME}'
+             sudo -n systemctl --no-pager --full status '${SERVICE_NAME}'"
