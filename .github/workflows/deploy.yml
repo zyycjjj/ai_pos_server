@@ -48,7 +48,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Generate ZenStack artifacts
-        run: pnpm zen:generate
+        run: pnpm zen:generate:server
 
       - name: Typecheck
         run: pnpm typecheck
@@ -155,7 +155,7 @@ jobs:
              command -v pnpm
              pnpm -v
              pnpm install --frozen-lockfile
-             pnpm zen:generate
+             pnpm zen:generate:server
              pnpm prisma:push
              pnpm build
              sudo -n cp 'deploy/systemd/ai-pos-server.service' '/etc/systemd/system/${SERVICE_NAME}.service'
