@@ -121,6 +121,23 @@ export class AuthService {
       })),
       activeStoreId: activeStore.id,
       role: activeMembership.role,
+      permissions: this.createPermissions(activeMembership.role),
     };
+  }
+
+  private createPermissions(role: StoreRole) {
+    if (role !== StoreRole.OWNER && role !== StoreRole.MANAGER) {
+      return [];
+    }
+
+    return [
+      'admin.dashboard.read',
+      'admin.staff.read',
+      'admin.staff.manage',
+      'admin.products.read',
+      'admin.products.manage',
+      'admin.campaigns.read',
+      'admin.ai.read',
+    ];
   }
 }

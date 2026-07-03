@@ -5,6 +5,7 @@ import { ClsModule, ClsService } from 'nestjs-cls';
 
 import { AuthMiddleware } from './common/auth.middleware';
 import { RpcMiddleware } from './common/rpc.middleware';
+import { AdminModule } from './modules/admin/admin.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AiModule } from './modules/ai/ai.module';
 import { CheckoutModule } from './modules/checkout/checkout.module';
@@ -33,6 +34,7 @@ import { useZenFactory } from './zenstack/useZenFactory';
     }),
     HealthModule,
     AuthModule,
+    AdminModule,
     AiModule,
     CheckoutModule,
     ReceiptsModule,

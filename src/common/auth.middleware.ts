@@ -67,10 +67,12 @@ export class AuthMiddleware implements NestMiddleware {
 
     req.user = user;
     req.storeId = storeId;
-    this.cls.set('user', user);
-    this.cls.set('storeId', storeId);
-    this.cls.set('role', membership.role);
-    next();
+    this.cls.run(() => {
+      this.cls.set('user', user);
+      this.cls.set('storeId', storeId);
+      this.cls.set('role', membership.role);
+      next();
+    });
   }
 
   private readBearerToken(req: Request) {

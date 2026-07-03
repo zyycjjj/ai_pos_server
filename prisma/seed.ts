@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { AiDraftStatus, CampaignStatus, OrderStatus, PaymentMethod, PrismaClient } from '@prisma/client';
 
 import { hashPassword } from '../src/modules/auth/password';
 
@@ -154,6 +154,147 @@ async function main() {
       },
     },
   });
+
+  const products = await prisma.product.findMany({
+    where: { storeId: store.id, isActive: true },
+    orderBy: { createdAt: 'asc' },
+    take: 5,
+  });
+
+  const orderCount = await prisma.order.count({ where: { storeId: store.id } });
+  if (orderCount < 2 && products.length >= 2) {
+    const now = new Date();
+    const demoOrders = [
+      {
+        orderNumber: `DEMO-${store.id.slice(-6)}-001`,
+        pickupNumber: '0001',
+        product: products[0],
+        quantity: 2,
+        unitPrice: Number(products[0].price),
+        tax: 0.56,
+      },
+      {
+        orderNumber: `DEMO-${store.id.slice(-6)}-002`,
+        pickupNumber: '0002',
+        product: products[1],
+        quantity: 1,
+        unitPrice: Number(products[1].price),
+        tax: 0.4,
+      },
+    ];
+
+    for (const demoOrder of demoOrders) {
+      const lineTotal = Number((demoOrder.unitPrice * demoOrder.quantity).toFixed(2));
+      const total = Number((lineTotal + demoOrder.tax).toFixed(2));
+      await prisma.order.upsert({
+        where: { orderNumber: demoOrder.orderNumber },
+        update: {},
+        create: {
+          storeId: store.id,
+          orderNumber: demoOrder.orderNumber,
+          pickupNumber: demoOrder.pickupNumber,
+          status: OrderStatus.PAID,
+          paymentMethod: PaymentMethod.CARD,
+          currency: 'USD',
+          subtotal: lineTotal,
+          tax: demoOrder.tax,
+          tip: 0,
+          total,
+          paidAt: now,
+          items: {
+            create: {
+              productId: demoOrder.product.id,
+              quantity: demoOrder.quantity,
+              unitPrice: demoOrder.unitPrice,
+              lineTotal,
+            },
+          },
+          payments: {
+            create: {
+              method: PaymentMethod.CARD,
+              amount: total,
+            },
+          },
+        },
+      });
+    }
+  }
+
+  const campaignCount = await prisma.campaign.count({ where: { storeId: store.id } });
+  if (campaignCount === 0) {
+    await prisma.campaign.create({
+      data: {
+        storeId: store.id,
+        name: 'Afternoon Chill Promo',
+        goal: 'Increase afternoon sales',
+        status: CampaignStatus.DRAFT,
+        discountType: 'percentage',
+        discountValue: 15,
+        timeWindow: '2pm-5pm',
+        bannerCopy: 'Make the slow hours feel easy with a fresh counter deal.',
+        staffMessage: 'Recommend Cold Brew during the afternoon window.',
+        structuredJson: {
+          campaignName: 'Afternoon Chill Promo',
+          goal: 'Increase afternoon sales',
+          targetProducts: ['Cold Brew'],
+          discountType: 'percentage',
+          discountValue: 15,
+          timeWindow: '2pm-5pm',
+        },
+      },
+    });
+  }
+
+  const menuDraftCount = await prisma.aiDraft.count({
+    where: {
+      storeId: store.id,
+      prompt: 'Seed menu draft for Admin shell',
+    },
+  });
+  if (menuDraftCount === 0) {
+    await prisma.aiDraft.create({
+      data: {
+        storeId: store.id,
+        prompt: 'Seed menu draft for Admin shell',
+        status: AiDraftStatus.DRAFT,
+        structuredJson: {
+          currency: 'USD',
+          source: 'seed-admin-menu-draft',
+          items: [
+            { name: 'Iced Latte', category: 'Coffee', price: 5.75, currency: 'USD' },
+            { name: 'Matcha Lemonade', category: 'Tea', price: 5.25, currency: 'USD' },
+          ],
+        },
+      },
+    });
+  }
+
+  const campaignDraftCount = await prisma.aiDraft.count({
+    where: {
+      storeId: store.id,
+      prompt: 'Seed campaign draft for Admin shell',
+    },
+  });
+  if (campaignDraftCount === 0) {
+    await prisma.aiDraft.create({
+      data: {
+        storeId: store.id,
+        prompt: 'Seed campaign draft for Admin shell',
+        status: AiDraftStatus.DRAFT,
+        structuredJson: {
+          draftType: 'campaign',
+          campaign: {
+            campaignName: 'Weekend Lunch Boost',
+            goal: 'Increase lunch orders',
+            targetProducts: ['Croissant', 'Latte'],
+            discountType: 'staff_prompt',
+            discountValue: 0,
+            timeWindow: 'Weekend lunch',
+          },
+        },
+      },
+    });
+  }
 }
 
 main()
