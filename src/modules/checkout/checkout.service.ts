@@ -4,6 +4,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 
 import { multiplyMoney, toMoney } from '@/common/utils/money';
 import { presentOrder } from '@/common/utils/order-presenter';
+import { StoreContextService } from '@/common/store-context.service';
 import { PrismaService } from '@/prisma/prisma.service';
 
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -21,11 +22,18 @@ type ProductWithModifiers = Prisma.ProductGetPayload<{
 
 @Injectable()
 export class CheckoutService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storeContext?: StoreContextService,
+  ) {}
 
   async listOrders(query: ListOrdersDto) {
+    const storeId = this.getStoreId();
     const orders = await this.prisma.order.findMany({
-      where: query.status ? { status: query.status } : undefined,
+      where: {
+        storeId,
+        ...(query.status ? { status: query.status } : {}),
+      },
       include: { items: { include: { product: true } }, payments: true },
       orderBy: { createdAt: 'desc' },
       take: query.take,
@@ -41,9 +49,10 @@ export class CheckoutService {
   }
 
   async createOrder(dto: CreateOrderDto) {
+    const storeId = this.getStoreId();
     const productIds = [...new Set(dto.items.map((item) => item.productId))];
     const products = await this.prisma.product.findMany({
-      where: { id: { in: productIds }, isActive: true },
+      where: { id: { in: productIds }, storeId, isActive: true },
       include: {
         modifierGroups: {
           include: {
@@ -102,6 +111,7 @@ export class CheckoutService {
       total,
       paymentResult,
       items,
+      storeId,
     });
 
     return presentOrder(order);
@@ -162,8 +172,9 @@ export class CheckoutService {
   }
 
   private async findOrder(id: string) {
-    const order = await this.prisma.order.findUnique({
-      where: { id },
+    const storeId = this.getStoreId();
+    const order = await this.prisma.order.findFirst({
+      where: { id, storeId },
       include: { items: { include: { product: true } }, payments: true },
     });
     if (!order) {
@@ -179,6 +190,7 @@ export class CheckoutService {
   }
 
   private async createPickupNumber(tx: Prisma.TransactionClient) {
+    const storeId = this.getStoreId();
     const now = new Date();
     const startOfDay = new Date(now);
     startOfDay.setHours(0, 0, 0, 0);
@@ -186,6 +198,7 @@ export class CheckoutService {
     endOfDay.setHours(23, 59, 59, 999);
     const count = await tx.order.count({
       where: {
+        storeId,
         createdAt: {
           gte: startOfDay,
           lte: endOfDay,
@@ -196,6 +209,7 @@ export class CheckoutService {
   }
 
   private async createPaidOrderWithRetry(input: {
+    storeId: string;
     currency: string;
     subtotal: Decimal;
     adjustment: Decimal;
@@ -227,6 +241,7 @@ export class CheckoutService {
             return tx.order.create({
               data: {
                 orderNumber: this.createOrderNumber(),
+                storeId: input.storeId,
                 pickupNumber,
                 status: OrderStatus.PAID,
                 paymentMethod: input.paymentResult.summaryMethod,
@@ -388,5 +403,9 @@ export class CheckoutService {
     }
 
     return snapshots;
+  }
+
+  private getStoreId() {
+    return this.storeContext?.getStoreId() ?? 'test-store';
   }
 }

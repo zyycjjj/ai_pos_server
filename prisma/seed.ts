@@ -1,24 +1,94 @@
 import { PrismaClient } from '@prisma/client';
 
+import { hashPassword } from '../src/modules/auth/password';
+
 const prisma = new PrismaClient();
 
 async function main() {
-  const count = await prisma.product.count();
+  const store = await prisma.store.upsert({
+    where: { code: 'demo-store' },
+    update: {
+      name: 'AI-POS Demo Store',
+      active: true,
+    },
+    create: {
+      name: 'AI-POS Demo Store',
+      code: 'demo-store',
+      timezone: 'Asia/Shanghai',
+      currency: 'USD',
+    },
+  });
+
+  const demoStaff = [
+    { email: 'owner@aipos.test', name: 'Demo Owner', role: 'OWNER' as const },
+    { email: 'manager@aipos.test', name: 'Demo Manager', role: 'MANAGER' as const },
+    { email: 'cashier@aipos.test', name: 'Demo Cashier', role: 'CASHIER' as const },
+  ];
+
+  for (const staff of demoStaff) {
+    const user = await prisma.user.upsert({
+      where: { email: staff.email },
+      update: {
+        name: staff.name,
+        active: true,
+      },
+      create: {
+        email: staff.email,
+        name: staff.name,
+        passwordHash: hashPassword('password123'),
+      },
+    });
+
+    await prisma.storeUser.upsert({
+      where: { storeId_userId: { storeId: store.id, userId: user.id } },
+      update: {
+        role: staff.role,
+        active: true,
+      },
+      create: {
+        storeId: store.id,
+        userId: user.id,
+        role: staff.role,
+      },
+    });
+  }
+
+  const orphanProductIds = await prisma.product.findMany({
+    where: { storeId: null },
+    select: { id: true },
+  });
+  if (orphanProductIds.length > 0) {
+    await prisma.product.updateMany({
+      where: { id: { in: orphanProductIds.map((product) => product.id) } },
+      data: { storeId: store.id },
+    });
+  }
+  await prisma.order.updateMany({
+    where: { storeId: null },
+    data: { storeId: store.id },
+  });
+  await prisma.aiDraft.updateMany({
+    where: { storeId: null },
+    data: { storeId: store.id },
+  });
+
+  const count = await prisma.product.count({ where: { storeId: store.id } });
   if (count === 0) {
     await prisma.product.createMany({
       data: [
-        { name: 'Espresso', category: 'Coffee', price: 3.5 },
-        { name: 'Latte', category: 'Coffee', price: 5 },
-        { name: 'Cold Brew', category: 'Coffee', price: 5.5 },
-        { name: 'Croissant', category: 'Bakery', price: 4.25 },
+        { storeId: store.id, name: 'Espresso', category: 'Coffee', price: 3.5 },
+        { storeId: store.id, name: 'Latte', category: 'Coffee', price: 5 },
+        { storeId: store.id, name: 'Cold Brew', category: 'Coffee', price: 5.5 },
+        { storeId: store.id, name: 'Croissant', category: 'Bakery', price: 4.25 },
       ],
     });
   }
 
   const milkTea =
-    (await prisma.product.findFirst({ where: { name: 'Milk Tea' } })) ??
+    (await prisma.product.findFirst({ where: { storeId: store.id, name: 'Milk Tea' } })) ??
     (await prisma.product.create({
       data: {
+        storeId: store.id,
         name: 'Milk Tea',
         category: 'Tea',
         price: 6.5,

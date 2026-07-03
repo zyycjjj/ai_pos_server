@@ -1,16 +1,22 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
+import { StoreContextService } from '@/common/store-context.service';
+
 import { ListProductsDto } from './dto/list-products.dto';
 import { presentProduct } from './presenter/product.presenter';
 import { ProductsRepository } from './products.repository';
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly productsRepository: ProductsRepository) {}
+  constructor(
+    private readonly productsRepository: ProductsRepository,
+    private readonly storeContext?: StoreContextService,
+  ) {}
 
   async listProducts(query: ListProductsDto) {
     const products = await this.productsRepository.findMany({
+      storeId: this.getStoreId(),
       isActive: query.active === undefined ? undefined : query.active === 'true',
       orderBy: this.createOrderBy(query.orderBy),
     });
@@ -20,6 +26,7 @@ export class ProductsService {
 
   async listActiveProducts() {
     const products = await this.productsRepository.findMany({
+      storeId: this.getStoreId(),
       isActive: true,
       orderBy: [{ category: 'asc' }, { name: 'asc' }],
     });
@@ -38,5 +45,8 @@ export class ProductsService {
 
     return [{ isActive: 'desc' }, { category: 'asc' }, { name: 'asc' }];
   }
-}
 
+  private getStoreId() {
+    return this.storeContext?.getStoreId() ?? 'test-store';
+  }
+}

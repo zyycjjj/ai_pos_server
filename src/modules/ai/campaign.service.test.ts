@@ -40,6 +40,9 @@ describe('AiCampaignService', () => {
           confirmedAt: null,
         }),
       },
+      campaign: {
+        create: async () => ({ id: 'campaign-1' }),
+      },
     };
     const deepSeek = {
       completeJson: async () => null,

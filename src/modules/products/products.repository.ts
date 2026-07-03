@@ -7,9 +7,12 @@ import { PrismaService } from '@/prisma/prisma.service';
 export class ProductsRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  findMany(params: { isActive?: boolean; orderBy?: Prisma.ProductOrderByWithRelationInput[] }) {
+  findMany(params: { storeId: string; isActive?: boolean; orderBy?: Prisma.ProductOrderByWithRelationInput[] }) {
     return this.prisma.product.findMany({
-      where: params.isActive === undefined ? undefined : { isActive: params.isActive },
+      where: {
+        storeId: params.storeId,
+        ...(params.isActive === undefined ? {} : { isActive: params.isActive }),
+      },
       include: {
         modifierGroups: {
           include: {

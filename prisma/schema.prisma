@@ -37,8 +37,65 @@ enum AiDraftStatus {
   DISCARDED
 }
 
+enum StoreRole {
+  OWNER
+  MANAGER
+  CASHIER
+  STAFF
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  ENDED
+}
+
+model Store {
+  id        String      @id() @default(cuid())
+  name      String
+  code      String?     @unique()
+  timezone  String      @default("Asia/Shanghai")
+  currency  String      @default("USD")
+  active    Boolean     @default(true)
+  users     StoreUser[]
+  products  Product[]
+  orders    Order[]
+  aiDrafts  AiDraft[]
+  campaigns Campaign[]
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt()
+}
+
+model User {
+  id           String      @id() @default(cuid())
+  email        String      @unique()
+  name         String?
+  passwordHash String
+  active       Boolean     @default(true)
+  stores       StoreUser[]
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt()
+}
+
+model StoreUser {
+  id        String    @id() @default(cuid())
+  storeId   String
+  store     Store     @relation(fields: [storeId], references: [id])
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  role      StoreRole
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt()
+
+  @@unique([storeId, userId])
+}
+
 model Product {
   id             String                 @id() @default(cuid())
+  storeId        String?
+  store          Store?                 @relation(fields: [storeId], references: [id])
   name           String
   category       String?
   price          Decimal                @db.Decimal(10, 2)
@@ -48,6 +105,8 @@ model Product {
   orderItems     OrderItem[]
   createdAt      DateTime               @default(now())
   updatedAt      DateTime               @updatedAt()
+
+  @@index([storeId])
 }
 
 model ProductModifierGroup {
@@ -76,6 +135,8 @@ model ProductModifierOption {
 
 model Order {
   id              String         @id() @default(cuid())
+  storeId         String?
+  store           Store?         @relation(fields: [storeId], references: [id])
   orderNumber     String         @unique()
   pickupNumber    String?
   status          OrderStatus    @default(OPEN)
@@ -97,6 +158,8 @@ model Order {
   payments        OrderPayment[]
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt()
+
+  @@index([storeId])
 }
 
 model OrderPayment {
@@ -125,10 +188,34 @@ model OrderItem {
 
 model AiDraft {
   id             String        @id() @default(cuid())
+  storeId        String?
+  store          Store?        @relation(fields: [storeId], references: [id])
   prompt         String        @db.Text()
   structuredJson Json
   status         AiDraftStatus @default(DRAFT)
   confirmedAt    DateTime?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt()
+
+  @@index([storeId])
+}
+
+model Campaign {
+  id             String         @id() @default(cuid())
+  storeId        String
+  store          Store          @relation(fields: [storeId], references: [id])
+  name           String
+  goal           String?
+  status         CampaignStatus @default(DRAFT)
+  discountType   String?
+  discountValue  Float?
+  timeWindow     String?
+  bannerCopy     String?
+  staffMessage   String?
+  structuredJson Json?
+  createdById    String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt()
+
+  @@index([storeId])
 }

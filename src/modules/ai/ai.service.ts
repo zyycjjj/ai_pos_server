@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { AiDraftStatus, Prisma } from '@prisma/client';
 
+import { StoreContextService } from '@/common/store-context.service';
 import { PrismaService } from '@/prisma/prisma.service';
 
 import { presentAiDraft } from './ai-draft.presenter';
@@ -29,10 +30,13 @@ export class AiService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly deepSeekMenuService: DeepSeekMenuService,
+    private readonly storeContext?: StoreContextService,
   ) {}
 
   async listDrafts() {
+    const storeId = this.getStoreId();
     const drafts = await this.prisma.aiDraft.findMany({
+      where: { storeId },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
@@ -40,9 +44,11 @@ export class AiService {
   }
 
   async createMenuDraft(dto: CreateMenuDraftDto) {
+    const storeId = this.getStoreId();
     const structuredJson = this.generateLocalMenuDraft(dto.prompt, dto.currency ?? 'USD');
     const draft = await this.prisma.aiDraft.create({
       data: {
+        storeId,
         prompt: dto.prompt,
         structuredJson: structuredJson as unknown as Prisma.InputJsonValue,
       },
@@ -52,6 +58,7 @@ export class AiService {
   }
 
   async generateMenu(dto: GenerateMenuDto) {
+    const storeId = this.getStoreId();
     const prompt = this.createMenuPrompt(dto);
 
     try {
@@ -61,6 +68,7 @@ export class AiService {
         const menu = this.normalizeGeneratedMenu(parsed, 'deepseek', deepSeekResult.model);
         const draft = await this.prisma.aiDraft.create({
           data: {
+            storeId,
             prompt,
             structuredJson: menu as unknown as Prisma.InputJsonValue,
           },
@@ -78,6 +86,7 @@ export class AiService {
     const menu = this.createMockGeneratedMenu(dto);
     const draft = await this.prisma.aiDraft.create({
       data: {
+        storeId,
         prompt,
         structuredJson: menu as unknown as Prisma.InputJsonValue,
       },
@@ -91,10 +100,11 @@ export class AiService {
   }
 
   async importMenu(dto: ImportMenuDto) {
+    const storeId = this.getStoreId();
     const menu = this.normalizeGeneratedMenu(dto.menu, 'mock', process.env.DEEPSEEK_MODEL ?? 'deepseek-chat');
     const names = menu.products.map((product) => product.name);
     const existing = await this.prisma.product.findMany({
-      where: { name: { in: names } },
+      where: { storeId, name: { in: names } },
       select: { id: true, name: true },
     });
     const existingNames = new Set(existing.map((product) => product.name.toLowerCase()));
@@ -114,6 +124,7 @@ export class AiService {
           const createdProduct = await tx.product.create({
             data: {
               name: product.name,
+              storeId,
               category: product.category,
               price: product.price,
               currency: 'USD',
@@ -181,7 +192,8 @@ export class AiService {
   }
 
   async confirmMenuDraft(id: string, dto: ConfirmMenuDraftDto) {
-    const draft = await this.prisma.aiDraft.findUnique({ where: { id } });
+    const storeId = this.getStoreId();
+    const draft = await this.prisma.aiDraft.findFirst({ where: { id, storeId } });
     if (!draft) {
       throw new NotFoundException('AI draft not found.');
     }
@@ -192,7 +204,7 @@ export class AiService {
     const menu = this.parseDraftMenu(draft.structuredJson);
     const productNames = menu.items.map((item) => item.name);
     const existing = await this.prisma.product.findMany({
-      where: { name: { in: productNames } },
+      where: { storeId, name: { in: productNames } },
     });
     const existingByName = new Map(existing.map((product) => [product.name.toLowerCase(), product]));
 
@@ -212,6 +224,7 @@ export class AiService {
               where: { id: existingProduct.id },
               data: {
                 category: item.category,
+                storeId,
                 price: item.price,
                 currency: item.currency,
                 isActive: true,
@@ -223,6 +236,7 @@ export class AiService {
 
           const created = await tx.product.create({
             data: {
+              storeId,
               name: item.name,
               category: item.category,
               price: item.price,
@@ -260,7 +274,8 @@ export class AiService {
   }
 
   async discardDraft(id: string) {
-    const draft = await this.prisma.aiDraft.findUnique({ where: { id } });
+    const storeId = this.getStoreId();
+    const draft = await this.prisma.aiDraft.findFirst({ where: { id, storeId } });
     if (!draft) {
       throw new NotFoundException('AI draft not found.');
     }
@@ -274,6 +289,10 @@ export class AiService {
     });
 
     return presentAiDraft(updated);
+  }
+
+  private getStoreId() {
+    return this.storeContext?.getStoreId() ?? 'test-store';
   }
 
   private generateLocalMenuDraft(prompt: string, currency: string): DraftMenu {

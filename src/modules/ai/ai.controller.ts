@@ -1,5 +1,9 @@
-import { Body, Controller, Get, NotFoundException, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Get, NotFoundException, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { StoreRole } from '@prisma/client';
+
+import { Roles } from '@/modules/auth/roles.decorator';
+import { RolesGuard } from '@/modules/auth/roles.guard';
 
 import { AiCampaignService } from './campaign.service';
 import { AiJobService } from './ai-job.service';
@@ -12,6 +16,8 @@ import { ImportMenuDto } from './dto/import-menu.dto';
 
 @ApiTags('ai')
 @Controller('ai')
+@UseGuards(RolesGuard)
+@Roles(StoreRole.OWNER, StoreRole.MANAGER)
 export class AiController {
   constructor(
     private readonly aiService: AiService,

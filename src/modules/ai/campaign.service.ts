@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { OrderStatus, Prisma } from '@prisma/client';
 
+import { StoreContextService } from '@/common/store-context.service';
 import { toMoneyNumber } from '@/common/utils/money';
 import { PrismaService } from '@/prisma/prisma.service';
 
@@ -13,9 +14,11 @@ export class AiCampaignService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly deepSeekMenuService: DeepSeekMenuService,
+    private readonly storeContext?: StoreContextService,
   ) {}
 
   async generateCampaign(dto: GenerateCampaignDto) {
+    const storeId = this.getStoreId();
     const salesSummary = await this.getSalesSummary();
     const prompt = this.createCampaignPrompt(dto, salesSummary);
 
@@ -36,6 +39,7 @@ export class AiCampaignService {
         const campaign = this.normalizeCampaign(parsed, salesSummary, 'deepseek', deepSeekResult.model);
         const draft = await this.prisma.aiDraft.create({
           data: {
+            storeId,
             prompt,
             structuredJson: {
               draftType: 'campaign',
@@ -45,6 +49,7 @@ export class AiCampaignService {
         });
         return {
           draftId: draft.id,
+          campaignId: await this.saveCampaignDraft(storeId, campaign),
           campaign,
           source: 'deepseek' as const,
         };
@@ -56,6 +61,7 @@ export class AiCampaignService {
     const campaign = this.createMockCampaign(dto, salesSummary);
     const draft = await this.prisma.aiDraft.create({
       data: {
+        storeId,
         prompt,
         structuredJson: {
           draftType: 'campaign',
@@ -66,17 +72,20 @@ export class AiCampaignService {
 
     return {
       draftId: draft.id,
+      campaignId: await this.saveCampaignDraft(storeId, campaign),
       campaign,
       source: 'mock' as const,
     };
   }
 
   private async getSalesSummary(): Promise<AiCampaignSalesSummary> {
+    const storeId = this.getStoreId();
     const since = new Date();
     since.setDate(since.getDate() - 30);
 
     const orders = await this.prisma.order.findMany({
       where: {
+        storeId,
         status: OrderStatus.PAID,
         paidAt: { gte: since },
       },
@@ -119,6 +128,28 @@ export class AiCampaignService {
         amount: toMoneyNumber(amount),
       })),
     };
+  }
+
+  private async saveCampaignDraft(storeId: string, campaign: AiGeneratedCampaign) {
+    const saved = await this.prisma.campaign.create({
+      data: {
+        storeId,
+        name: campaign.campaignName,
+        goal: campaign.goal,
+        discountType: campaign.discountType,
+        discountValue: campaign.discountValue,
+        timeWindow: campaign.timeWindow,
+        bannerCopy: campaign.bannerCopy,
+        staffMessage: campaign.staffMessage,
+        structuredJson: campaign as unknown as Prisma.InputJsonValue,
+      },
+      select: { id: true },
+    });
+    return saved.id;
+  }
+
+  private getStoreId() {
+    return this.storeContext?.getStoreId() ?? 'test-store';
   }
 
   private createCampaignPrompt(dto: GenerateCampaignDto, salesSummary: AiCampaignSalesSummary) {

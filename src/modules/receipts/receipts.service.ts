@@ -1,16 +1,20 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 
+import { StoreContextService } from '@/common/store-context.service';
 import { toMoneyNumber } from '@/common/utils/money';
 import { PrismaService } from '@/prisma/prisma.service';
 
 @Injectable()
 export class ReceiptsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storeContext?: StoreContextService,
+  ) {}
 
   async getReceiptForOrder(orderId: string) {
-    const order = await this.prisma.order.findUnique({
-      where: { id: orderId },
-      include: { items: { include: { product: true } }, payments: true },
+    const order = await this.prisma.order.findFirst({
+      where: { id: orderId, storeId: this.getStoreId() },
+      include: { store: true, items: { include: { product: true } }, payments: true },
     });
     if (!order) {
       throw new NotFoundException('Order not found.');
@@ -19,7 +23,7 @@ export class ReceiptsService {
     return {
       format: 'escpos-80mm',
       store: {
-        name: 'AI POS Store',
+        name: order.store?.name ?? 'AI-POS Store',
       },
       order: {
         id: order.id,
@@ -60,5 +64,9 @@ export class ReceiptsService {
         qrPayload: `ai-pos://orders/${order.id}`,
       },
     };
+  }
+
+  private getStoreId() {
+    return this.storeContext?.getStoreId() ?? 'test-store';
   }
 }

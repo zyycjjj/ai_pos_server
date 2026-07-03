@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 
+import { StoreContextService } from '@/common/store-context.service';
+
 import type { AiGeneratedCampaign } from './ai-campaign.types';
 import type { AiGeneratedMenu } from './ai-menu.types';
 import { AiService } from './ai.service';
@@ -19,6 +21,7 @@ type MenuJobResult = {
 
 type CampaignJobResult = {
   draftId: string;
+  campaignId?: string;
   campaign: AiGeneratedCampaign;
   source: 'deepseek' | 'mock';
 };
@@ -27,6 +30,7 @@ type AiJobResult = MenuJobResult | CampaignJobResult;
 
 type AiJob = {
   id: string;
+  storeId: string;
   kind: AiJobKind;
   status: AiJobStatus;
   createdAt: string;
@@ -42,29 +46,34 @@ export class AiJobService {
   constructor(
     private readonly aiService: AiService,
     private readonly aiCampaignService: AiCampaignService,
+    private readonly storeContext?: StoreContextService,
   ) {}
 
   startMenuGeneration(dto: GenerateMenuDto) {
-    const job = this.createJob('menu');
+    const job = this.createJob('menu', this.getStoreId());
     void this.runJob(job.id, async () => this.aiService.generateMenu(dto));
     return this.presentJob(job);
   }
 
   startCampaignGeneration(dto: GenerateCampaignDto) {
-    const job = this.createJob('campaign');
+    const job = this.createJob('campaign', this.getStoreId());
     void this.runJob(job.id, async () => this.aiCampaignService.generateCampaign(dto));
     return this.presentJob(job);
   }
 
   getJob(id: string) {
     const job = this.jobs.get(id);
+    if (job && job.storeId !== this.getStoreId()) {
+      return null;
+    }
     return job ? this.presentJob(job) : null;
   }
 
-  private createJob(kind: AiJobKind) {
+  private createJob(kind: AiJobKind, storeId: string) {
     const now = new Date().toISOString();
     const job: AiJob = {
       id: randomUUID(),
+      storeId,
       kind,
       status: 'queued',
       createdAt: now,
@@ -109,5 +118,9 @@ export class AiJobService {
       result: job.result,
       error: job.error,
     };
+  }
+
+  private getStoreId() {
+    return this.storeContext?.getStoreId() ?? 'test-store';
   }
 }
