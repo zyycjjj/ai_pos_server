@@ -63,34 +63,37 @@ export class AdminService {
     this.assertManageableCreate(dto.role, currentUser.role);
 
     const email = dto.email.toLowerCase().trim();
-    const staff = await this.prisma.$transaction(async (tx) => {
-      const user =
-        (await tx.user.findUnique({ where: { email } })) ??
-        (await tx.user.create({
+    const staff = await this.prisma.$transaction(
+      async (tx) => {
+        const user =
+          (await tx.user.findUnique({ where: { email } })) ??
+          (await tx.user.create({
+            data: {
+              email,
+              name: dto.name?.trim(),
+              passwordHash: hashPassword(dto.password),
+            },
+          }));
+
+        const existing = await tx.storeUser.findUnique({
+          where: { storeId_userId: { storeId, userId: user.id } },
+        });
+        if (existing) {
+          throw new BadRequestException('Staff already belongs to this store.');
+        }
+
+        return tx.storeUser.create({
           data: {
-            email,
-            name: dto.name?.trim(),
-            passwordHash: hashPassword(dto.password),
+            storeId,
+            userId: user.id,
+            role: dto.role,
+            active: true,
           },
-        }));
-
-      const existing = await tx.storeUser.findUnique({
-        where: { storeId_userId: { storeId, userId: user.id } },
-      });
-      if (existing) {
-        throw new BadRequestException('Staff already belongs to this store.');
-      }
-
-      return tx.storeUser.create({
-        data: {
-          storeId,
-          userId: user.id,
-          role: dto.role,
-          active: true,
-        },
-        include: { user: true },
-      });
-    });
+          include: { user: true },
+        });
+      },
+      { timeout: 15_000 },
+    );
 
     return this.presentStaff(staff);
   }

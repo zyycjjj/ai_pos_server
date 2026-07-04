@@ -52,31 +52,34 @@ export class AuthService {
       throw new BadRequestException('Email is already registered.');
     }
 
-    const user = await this.prisma.$transaction(async (tx) => {
-      const store = await tx.store.create({
-        data: {
-          name: dto.storeName.trim(),
-        },
-      });
-      return tx.user.create({
-        data: {
-          email,
-          name: dto.name?.trim(),
-          passwordHash: hashPassword(dto.password),
-          stores: {
-            create: {
-              storeId: store.id,
-              role: StoreRole.OWNER,
+    const user = await this.prisma.$transaction(
+      async (tx) => {
+        const store = await tx.store.create({
+          data: {
+            name: dto.storeName.trim(),
+          },
+        });
+        return tx.user.create({
+          data: {
+            email,
+            name: dto.name?.trim(),
+            passwordHash: hashPassword(dto.password),
+            stores: {
+              create: {
+                storeId: store.id,
+                role: StoreRole.OWNER,
+              },
             },
           },
-        },
-        include: {
-          stores: {
-            include: { store: true },
+          include: {
+            stores: {
+              include: { store: true },
+            },
           },
-        },
-      });
-    });
+        });
+      },
+      { timeout: 15_000 },
+    );
 
     return this.createAuthResponse(user, user.stores[0].storeId);
   }

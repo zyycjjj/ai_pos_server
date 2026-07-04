@@ -159,7 +159,7 @@ export class AiService {
 
         return { created, skipped, products };
       },
-      { timeout: 15_000 },
+      { timeout: 60_000 },
     );
 
     return {
