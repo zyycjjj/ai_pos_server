@@ -61,6 +61,22 @@ enum CampaignStatus {
   ENDED
 }
 
+enum CatalogStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum ProductAvailabilityStatus {
+  AVAILABLE
+  SOLD_OUT
+}
+
+enum ModifierOptionStatus {
+  ACTIVE
+  INACTIVE
+  SOLD_OUT
+}
+
 model Store {
   id        String     @id @default(cuid())
   name      String
@@ -69,6 +85,7 @@ model Store {
   currency  String     @default("USD")
   active    Boolean    @default(true)
   users     StoreUser[]
+  categories Category[]
   products  Product[]
   orders    Order[]
   aiDrafts  AiDraft[]
@@ -107,21 +124,42 @@ model StoreUser {
   @@allow("all", true)
 }
 
+model Category {
+  id        String        @id @default(cuid())
+  storeId   String
+  store     Store         @relation(fields: [storeId], references: [id])
+  name      String
+  status    CatalogStatus @default(ACTIVE)
+  sortOrder Int           @default(0)
+  products  Product[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  @@unique([storeId, name])
+  @@index([storeId])
+  @@allow("all", true)
+}
+
 model Product {
   id             String                 @id @default(cuid())
   storeId        String?
   store          Store?                 @relation(fields: [storeId], references: [id])
   name           String
+  description    String?                @db.Text
+  categoryId     String?
+  categoryRef    Category?              @relation(fields: [categoryId], references: [id])
   category       String?
   price          Decimal                @db.Decimal(10, 2)
   currency       String                 @default("USD")
   isActive       Boolean                @default(true)
+  availabilityStatus ProductAvailabilityStatus @default(AVAILABLE)
   modifierGroups ProductModifierGroup[]
   orderItems     OrderItem[]
   createdAt      DateTime               @default(now())
   updatedAt      DateTime               @updatedAt
 
   @@index([storeId])
+  @@index([categoryId])
   @@allow("all", true)
 }
 
@@ -132,6 +170,9 @@ model ProductModifierGroup {
   name         String
   required     Boolean                 @default(false)
   multiSelect  Boolean                 @default(false)
+  minSelect    Int                     @default(0)
+  maxSelect    Int                     @default(1)
+  status       CatalogStatus           @default(ACTIVE)
   displayOrder Int                     @default(0)
   options      ProductModifierOption[]
   createdAt    DateTime                @default(now())
@@ -146,6 +187,7 @@ model ProductModifierOption {
   group        ProductModifierGroup @relation(fields: [groupId], references: [id])
   name         String
   priceDelta   Decimal              @default(0) @db.Decimal(10, 2)
+  status       ModifierOptionStatus @default(ACTIVE)
   displayOrder Int                  @default(0)
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt
@@ -202,6 +244,8 @@ model OrderItem {
   order     Order    @relation(fields: [orderId], references: [id])
   productId String
   product   Product  @relation(fields: [productId], references: [id])
+  productNameSnapshot String?
+  productCategorySnapshot String?
   quantity  Int
   unitPrice Decimal  @db.Decimal(10, 2)
   lineTotal Decimal  @db.Decimal(10, 2)

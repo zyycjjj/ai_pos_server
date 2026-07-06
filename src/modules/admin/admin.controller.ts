@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { StoreRole } from '@prisma/client';
 
@@ -9,6 +9,17 @@ import { AdminService } from './admin.service';
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { DisableStaffDto } from './dto/disable-staff.dto';
 import { UpdateStaffRoleDto } from './dto/update-staff-role.dto';
+import {
+  ListAdminProductsDto,
+  UpdateCatalogStatusDto,
+  UpdateModifierOptionStatusDto,
+  UpdateProductAvailabilityDto,
+  UpdateProductStatusDto,
+  UpsertCategoryDto,
+  UpsertModifierGroupDto,
+  UpsertModifierOptionDto,
+  UpsertProductDto,
+} from './dto/catalog.dto';
 
 @ApiTags('admin')
 @Controller('admin')
@@ -49,8 +60,98 @@ export class AdminController {
 
   @Get('products')
   @ApiOperation({ summary: 'List products for Admin management.' })
-  listProducts() {
-    return this.adminService.listProducts();
+  listProducts(@Query() query: ListAdminProductsDto) {
+    return this.adminService.listProducts(query);
+  }
+
+  @Get('products/:id')
+  @ApiOperation({ summary: 'Read a product detail for Admin editing.' })
+  getProduct(@Param('id') id: string) {
+    return this.adminService.getProduct(id);
+  }
+
+  @Post('products')
+  @ApiOperation({ summary: 'Create a product in the active store.' })
+  createProduct(@Body() dto: UpsertProductDto) {
+    return this.adminService.createProduct(dto);
+  }
+
+  @Patch('products/:id')
+  @ApiOperation({ summary: 'Update product basic information.' })
+  updateProduct(@Param('id') id: string, @Body() dto: UpsertProductDto) {
+    return this.adminService.updateProduct(id, dto);
+  }
+
+  @Patch('products/:id/status')
+  @ApiOperation({ summary: 'Enable or disable a product.' })
+  updateProductStatus(@Param('id') id: string, @Body() dto: UpdateProductStatusDto) {
+    return this.adminService.updateProductStatus(id, dto);
+  }
+
+  @Patch('products/:id/availability')
+  @ApiOperation({ summary: 'Mark a product available or sold out.' })
+  updateProductAvailability(@Param('id') id: string, @Body() dto: UpdateProductAvailabilityDto) {
+    return this.adminService.updateProductAvailability(id, dto);
+  }
+
+  @Get('categories')
+  @ApiOperation({ summary: 'List product categories for the active store.' })
+  listCategories() {
+    return this.adminService.listCategories();
+  }
+
+  @Post('categories')
+  @ApiOperation({ summary: 'Create a product category.' })
+  createCategory(@Body() dto: UpsertCategoryDto) {
+    return this.adminService.createCategory(dto);
+  }
+
+  @Patch('categories/:id')
+  @ApiOperation({ summary: 'Rename or reorder a product category.' })
+  updateCategory(@Param('id') id: string, @Body() dto: UpsertCategoryDto) {
+    return this.adminService.updateCategory(id, dto);
+  }
+
+  @Patch('categories/:id/status')
+  @ApiOperation({ summary: 'Enable or disable a category.' })
+  updateCategoryStatus(@Param('id') id: string, @Body() dto: UpdateCatalogStatusDto) {
+    return this.adminService.updateCategoryStatus(id, dto);
+  }
+
+  @Post('products/:productId/modifier-groups')
+  @ApiOperation({ summary: 'Create a modifier group for a product.' })
+  createModifierGroup(@Param('productId') productId: string, @Body() dto: UpsertModifierGroupDto) {
+    return this.adminService.createModifierGroup(productId, dto);
+  }
+
+  @Patch('modifier-groups/:groupId')
+  @ApiOperation({ summary: 'Update a modifier group.' })
+  updateModifierGroup(@Param('groupId') groupId: string, @Body() dto: UpsertModifierGroupDto) {
+    return this.adminService.updateModifierGroup(groupId, dto);
+  }
+
+  @Patch('modifier-groups/:groupId/status')
+  @ApiOperation({ summary: 'Enable or disable a modifier group.' })
+  updateModifierGroupStatus(@Param('groupId') groupId: string, @Body() dto: UpdateCatalogStatusDto) {
+    return this.adminService.updateModifierGroupStatus(groupId, dto);
+  }
+
+  @Post('modifier-groups/:groupId/options')
+  @ApiOperation({ summary: 'Create a modifier option.' })
+  createModifierOption(@Param('groupId') groupId: string, @Body() dto: UpsertModifierOptionDto) {
+    return this.adminService.createModifierOption(groupId, dto);
+  }
+
+  @Patch('modifier-options/:optionId')
+  @ApiOperation({ summary: 'Update a modifier option.' })
+  updateModifierOption(@Param('optionId') optionId: string, @Body() dto: UpsertModifierOptionDto) {
+    return this.adminService.updateModifierOption(optionId, dto);
+  }
+
+  @Patch('modifier-options/:optionId/status')
+  @ApiOperation({ summary: 'Update modifier option status.' })
+  updateModifierOptionStatus(@Param('optionId') optionId: string, @Body() dto: UpdateModifierOptionStatusDto) {
+    return this.adminService.updateModifierOptionStatus(optionId, dto);
   }
 
   @Get('campaigns')

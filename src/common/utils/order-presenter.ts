@@ -39,8 +39,8 @@ export function presentOrder(order: OrderWithItems) {
     items: order.items.map((item) => ({
       id: item.id,
       productId: item.productId,
-      name: item.product.name,
-      category: item.product.category,
+      name: item.productNameSnapshot ?? item.product.name,
+      category: item.productCategorySnapshot ?? item.product.category,
       quantity: item.quantity,
       unitPrice: toMoneyNumber(item.unitPrice),
       lineTotal: toMoneyNumber(item.lineTotal),

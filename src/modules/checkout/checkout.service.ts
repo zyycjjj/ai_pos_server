@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { OrderStatus, PaymentMethod, PrintStatus, Prisma } from '@prisma/client';
+import { ModifierOptionStatus, OrderStatus, PaymentMethod, PrintStatus, Prisma, ProductAvailabilityStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
 import { multiplyMoney, toMoney } from '@/common/utils/money';
@@ -52,11 +52,13 @@ export class CheckoutService {
     const storeId = this.getStoreId();
     const productIds = [...new Set(dto.items.map((item) => item.productId))];
     const products = await this.prisma.product.findMany({
-      where: { id: { in: productIds }, storeId, isActive: true },
+      where: { id: { in: productIds }, storeId, isActive: true, availabilityStatus: ProductAvailabilityStatus.AVAILABLE },
       include: {
         modifierGroups: {
+          where: { status: 'ACTIVE' },
           include: {
             options: {
+              where: { status: { not: ModifierOptionStatus.INACTIVE } },
               orderBy: { displayOrder: 'asc' },
             },
           },
@@ -68,14 +70,14 @@ export class CheckoutService {
 
     const missingIds = productIds.filter((id) => !productById.has(id));
     if (missingIds.length > 0) {
-      throw new BadRequestException(`Product not found or inactive: ${missingIds.join(', ')}`);
+      throw new BadRequestException(`Product not found, inactive, or sold out: ${missingIds.join(', ')}`);
     }
 
     const currency = dto.currency ?? products[0]?.currency ?? 'USD';
     const items = dto.items.map((item) => {
       const product = productById.get(item.productId);
       if (!product) {
-        throw new BadRequestException(`Product not found or inactive: ${item.productId}`);
+        throw new BadRequestException(`Product not found, inactive, or sold out: ${item.productId}`);
       }
 
       const selectedModifiers = this.resolveSelectedModifiers(product, item.modifiers ?? []);
@@ -85,6 +87,8 @@ export class CheckoutService {
       const lineTotal = multiplyMoney(unitPrice, item.quantity);
       return {
         productId: product.id,
+        productNameSnapshot: product.name,
+        productCategorySnapshot: product.category,
         quantity: item.quantity,
         unitPrice,
         lineTotal,
@@ -221,6 +225,8 @@ export class CheckoutService {
     paymentResult: ReturnType<CheckoutService['resolvePayments']>;
     items: Array<{
       productId: string;
+      productNameSnapshot: string;
+      productCategorySnapshot: string | null;
       quantity: number;
       unitPrice: Decimal;
       lineTotal: Decimal;
@@ -376,6 +382,12 @@ export class CheckoutService {
       if (group.required && optionIds.length === 0) {
         throw new BadRequestException(`Modifier group is required: ${group.name}`);
       }
+      if (optionIds.length < group.minSelect) {
+        throw new BadRequestException(`Modifier group requires at least ${group.minSelect} option(s): ${group.name}`);
+      }
+      if (optionIds.length > group.maxSelect) {
+        throw new BadRequestException(`Modifier group allows at most ${group.maxSelect} option(s): ${group.name}`);
+      }
       if (!group.multiSelect && optionIds.length > 1) {
         throw new BadRequestException(`Modifier group allows one option: ${group.name}`);
       }
@@ -385,6 +397,9 @@ export class CheckoutService {
         const option = optionsById.get(optionId);
         if (!option) {
           throw new BadRequestException(`Modifier option does not belong to product: ${optionId}`);
+        }
+        if (option.status !== ModifierOptionStatus.ACTIVE) {
+          throw new BadRequestException(`Modifier option is not available: ${option.name}`);
         }
         snapshots.push({
           groupId: group.id,

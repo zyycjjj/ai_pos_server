@@ -114,6 +114,8 @@ export class AiService {
         let created = 0;
         let skipped = 0;
         const products = [];
+        const categories = await this.ensureCategories(tx, storeId, menu.categories.map((category) => category.name));
+        const categoryByName = new Map(categories.map((category) => [category.name.toLowerCase(), category]));
 
         for (const product of menu.products) {
           if (existingNames.has(product.name.toLowerCase())) {
@@ -121,24 +123,32 @@ export class AiService {
             continue;
           }
 
+          const category = categoryByName.get(product.category.toLowerCase());
           const createdProduct = await tx.product.create({
             data: {
               name: product.name,
               storeId,
+              description: product.description,
+              categoryId: category?.id,
               category: product.category,
               price: product.price,
               currency: 'USD',
               isActive: product.active,
+              availabilityStatus: 'AVAILABLE',
               modifierGroups: {
                 create: product.modifierGroups.map((group) => ({
                   name: group.name,
                   required: group.required,
                   multiSelect: group.multiSelect,
+                  minSelect: group.required ? 1 : 0,
+                  maxSelect: group.multiSelect ? Math.max(group.options.length, group.required ? 1 : 0) : 1,
+                  status: 'ACTIVE',
                   displayOrder: group.displayOrder,
                   options: {
                     create: group.options.map((option) => ({
                       name: option.name,
                       priceDelta: option.priceDelta,
+                      status: 'ACTIVE',
                       displayOrder: option.displayOrder,
                     })),
                   },
@@ -171,19 +181,26 @@ export class AiService {
         id: product.id,
         name: product.name,
         category: product.category,
+        categoryId: product.categoryId,
+        description: product.description,
         price: Number(product.price.toFixed(2)),
         currency: product.currency,
         isActive: product.isActive,
+        availabilityStatus: product.availabilityStatus,
         modifierGroups: product.modifierGroups.map((group) => ({
           id: group.id,
           name: group.name,
           required: group.required,
           multiSelect: group.multiSelect,
+          minSelect: group.minSelect,
+          maxSelect: group.maxSelect,
+          status: group.status,
           displayOrder: group.displayOrder,
           options: group.options.map((option) => ({
             id: option.id,
             name: option.name,
             priceDelta: Number(option.priceDelta.toFixed(2)),
+            status: option.status,
             displayOrder: option.displayOrder,
           })),
         })),
@@ -211,9 +228,12 @@ export class AiService {
     const result = await this.prisma.$transaction(
       async (tx) => {
         const products = [];
+        const categories = await this.ensureCategories(tx, storeId, Array.from(new Set(menu.items.map((item) => item.category))));
+        const categoryByName = new Map(categories.map((category) => [category.name.toLowerCase(), category]));
 
         for (const item of menu.items) {
           const existingProduct = existingByName.get(item.name.toLowerCase());
+          const category = categoryByName.get(item.category.toLowerCase());
           if (existingProduct?.isActive) {
             products.push(existingProduct);
             continue;
@@ -223,13 +243,15 @@ export class AiService {
             const restored = await tx.product.update({
               where: { id: existingProduct.id },
               data: {
-                category: item.category,
-                storeId,
-                price: item.price,
-                currency: item.currency,
-                isActive: true,
-              },
-            });
+              category: item.category,
+              categoryId: category?.id,
+              storeId,
+              price: item.price,
+              currency: item.currency,
+              isActive: true,
+              availabilityStatus: 'AVAILABLE',
+            },
+          });
             products.push(restored);
             continue;
           }
@@ -238,9 +260,11 @@ export class AiService {
             data: {
               storeId,
               name: item.name,
+              categoryId: category?.id,
               category: item.category,
               price: item.price,
               currency: item.currency,
+              availabilityStatus: 'AVAILABLE',
             },
           });
           products.push(created);
@@ -293,6 +317,31 @@ export class AiService {
 
   private getStoreId() {
     return this.storeContext?.getStoreId() ?? 'test-store';
+  }
+
+  private async ensureCategories(tx: Prisma.TransactionClient, storeId: string, names: string[]) {
+    const uniqueNames = Array.from(new Set(names.map((name) => name.trim()).filter(Boolean)));
+    const existing = await tx.category.findMany({ where: { storeId, name: { in: uniqueNames } } });
+    const existingNames = new Set(existing.map((category) => category.name.toLowerCase()));
+    const created = [];
+
+    for (const [index, name] of uniqueNames.entries()) {
+      if (existingNames.has(name.toLowerCase())) {
+        continue;
+      }
+      created.push(
+        await tx.category.create({
+          data: {
+            storeId,
+            name,
+            status: 'ACTIVE',
+            sortOrder: index + 1,
+          },
+        }),
+      );
+    }
+
+    return [...existing, ...created];
   }
 
   private generateLocalMenuDraft(prompt: string, currency: string): DraftMenu {

@@ -17,9 +17,11 @@ export class ProductsRepository {
         modifierGroups: {
           include: {
             options: {
+              where: { status: { not: 'INACTIVE' } },
               orderBy: { displayOrder: 'asc' },
             },
           },
+          where: { status: 'ACTIVE' },
           orderBy: { displayOrder: 'asc' },
         },
       },

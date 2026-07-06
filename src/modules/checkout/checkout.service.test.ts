@@ -115,6 +115,9 @@ describe('CheckoutService', () => {
             name: 'Sweetness',
             required: true,
             multiSelect: false,
+            minSelect: 1,
+            maxSelect: 1,
+            status: 'ACTIVE',
             displayOrder: 1,
             createdAt,
             updatedAt: createdAt,
@@ -124,6 +127,7 @@ describe('CheckoutService', () => {
                 groupId: 'sweetness',
                 name: '70%',
                 priceDelta: new Decimal('2.00'),
+                status: 'ACTIVE',
                 displayOrder: 1,
                 createdAt,
                 updatedAt: createdAt,
@@ -200,6 +204,66 @@ describe('CheckoutService', () => {
     assert.deepEqual(order.items[0].modifiers, [
       { groupId: 'sweetness', groupName: 'Sweetness', optionId: 'sweet-70', optionName: '70%', priceDelta: 2 },
     ]);
+  });
+
+  it('rejects sold out modifier options', async () => {
+    const createdAt = new Date('2026-05-20T05:31:25.329Z');
+    const products = [
+      {
+        id: 'milk-tea',
+        name: 'Milk Tea',
+        category: 'Tea',
+        price: new Decimal('6.50'),
+        currency: 'USD',
+        isActive: true,
+        modifierGroups: [
+          {
+            id: 'toppings',
+            productId: 'milk-tea',
+            name: 'Toppings',
+            required: false,
+            multiSelect: true,
+            minSelect: 0,
+            maxSelect: 3,
+            status: 'ACTIVE',
+            displayOrder: 1,
+            createdAt,
+            updatedAt: createdAt,
+            options: [
+              {
+                id: 'pearl',
+                groupId: 'toppings',
+                name: 'Pearl',
+                priceDelta: new Decimal('0.75'),
+                status: 'SOLD_OUT',
+                displayOrder: 1,
+                createdAt,
+                updatedAt: createdAt,
+              },
+            ],
+          },
+        ],
+        createdAt,
+        updatedAt: createdAt,
+      },
+    ];
+    const prisma = {
+      product: {
+        findMany: async () => products,
+      },
+    };
+
+    const service = new CheckoutService(prisma as any);
+    await assert.rejects(
+      () =>
+        service.createOrder({
+          items: [{ productId: 'milk-tea', quantity: 1, modifiers: [{ groupId: 'toppings', optionIds: ['pearl'] }] }],
+          tax: 0,
+          payments: [{ method: 'CARD', amount: 7.25 }],
+          currency: 'USD',
+        }),
+      /Modifier option is not available: Pearl/,
+    );
   });
 
   it('applies order adjustments and cash change', async () => {

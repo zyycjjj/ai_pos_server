@@ -18,6 +18,10 @@
       "description": "StoreUser operations"
     },
     {
+      "name": "category",
+      "description": "Category operations"
+    },
+    {
       "name": "product",
       "description": "Product operations"
     },
@@ -63,6 +67,28 @@
           "MANAGER",
           "CASHIER",
           "STAFF"
+        ]
+      },
+      "CatalogStatus": {
+        "type": "string",
+        "enum": [
+          "ACTIVE",
+          "INACTIVE"
+        ]
+      },
+      "ProductAvailabilityStatus": {
+        "type": "string",
+        "enum": [
+          "AVAILABLE",
+          "SOLD_OUT"
+        ]
+      },
+      "ModifierOptionStatus": {
+        "type": "string",
+        "enum": [
+          "ACTIVE",
+          "INACTIVE",
+          "SOLD_OUT"
         ]
       },
       "OrderStatus": {
@@ -139,6 +165,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/StoreUser"
+            }
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Category"
             }
           },
           "products": {
@@ -278,6 +310,53 @@
           "updatedAt"
         ]
       },
+      "Category": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "storeId": {
+            "type": "string"
+          },
+          "store": {
+            "$ref": "#/components/schemas/Store"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CatalogStatus"
+          },
+          "sortOrder": {
+            "type": "integer"
+          },
+          "products": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Product"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "storeId",
+          "store",
+          "name",
+          "status",
+          "sortOrder",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
       "Product": {
         "type": "object",
         "properties": {
@@ -307,6 +386,36 @@
           "name": {
             "type": "string"
           },
+          "description": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "categoryId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "categoryRef": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Category"
+              }
+            ]
+          },
           "category": {
             "oneOf": [
               {
@@ -332,6 +441,9 @@
           },
           "isActive": {
             "type": "boolean"
+          },
+          "availabilityStatus": {
+            "$ref": "#/components/schemas/ProductAvailabilityStatus"
           },
           "modifierGroups": {
             "type": "array",
@@ -360,6 +472,7 @@
           "price",
           "currency",
           "isActive",
+          "availabilityStatus",
           "createdAt",
           "updatedAt"
         ]
@@ -384,6 +497,15 @@
           },
           "multiSelect": {
             "type": "boolean"
+          },
+          "minSelect": {
+            "type": "integer"
+          },
+          "maxSelect": {
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CatalogStatus"
           },
           "displayOrder": {
             "type": "integer"
@@ -410,6 +532,9 @@
           "name",
           "required",
           "multiSelect",
+          "minSelect",
+          "maxSelect",
+          "status",
           "displayOrder",
           "createdAt",
           "updatedAt"
@@ -440,6 +565,9 @@
               }
             ]
           },
+          "status": {
+            "$ref": "#/components/schemas/ModifierOptionStatus"
+          },
           "displayOrder": {
             "type": "integer"
           },
@@ -458,6 +586,7 @@
           "group",
           "name",
           "priceDelta",
+          "status",
           "displayOrder",
           "createdAt",
           "updatedAt"
@@ -760,6 +889,26 @@
           },
           "product": {
             "$ref": "#/components/schemas/Product"
+          },
+          "productNameSnapshot": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "productCategorySnapshot": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
           },
           "quantity": {
             "type": "integer"
@@ -1308,6 +1457,148 @@
           "updatedAt"
         ]
       },
+      "AggregateCategory": {
+        "type": "object",
+        "properties": {
+          "_count": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CategoryCountAggregateOutputType"
+              }
+            ]
+          },
+          "_avg": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CategoryAvgAggregateOutputType"
+              }
+            ]
+          },
+          "_sum": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CategorySumAggregateOutputType"
+              }
+            ]
+          },
+          "_min": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CategoryMinAggregateOutputType"
+              }
+            ]
+          },
+          "_max": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CategoryMaxAggregateOutputType"
+              }
+            ]
+          }
+        }
+      },
+      "CategoryGroupByOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "storeId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CatalogStatus"
+          },
+          "sortOrder": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "_count": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CategoryCountAggregateOutputType"
+              }
+            ]
+          },
+          "_avg": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CategoryAvgAggregateOutputType"
+              }
+            ]
+          },
+          "_sum": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CategorySumAggregateOutputType"
+              }
+            ]
+          },
+          "_min": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CategoryMinAggregateOutputType"
+              }
+            ]
+          },
+          "_max": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CategoryMaxAggregateOutputType"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "storeId",
+          "name",
+          "status",
+          "sortOrder",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
       "AggregateProduct": {
         "type": "object",
         "properties": {
@@ -1382,6 +1673,26 @@
           "name": {
             "type": "string"
           },
+          "description": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "categoryId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
           "category": {
             "oneOf": [
               {
@@ -1407,6 +1718,9 @@
           },
           "isActive": {
             "type": "boolean"
+          },
+          "availabilityStatus": {
+            "$ref": "#/components/schemas/ProductAvailabilityStatus"
           },
           "createdAt": {
             "type": "string",
@@ -1473,6 +1787,7 @@
           "price",
           "currency",
           "isActive",
+          "availabilityStatus",
           "createdAt",
           "updatedAt"
         ]
@@ -1550,6 +1865,15 @@
           "multiSelect": {
             "type": "boolean"
           },
+          "minSelect": {
+            "type": "integer"
+          },
+          "maxSelect": {
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/CatalogStatus"
+          },
           "displayOrder": {
             "type": "integer"
           },
@@ -1618,6 +1942,9 @@
           "name",
           "required",
           "multiSelect",
+          "minSelect",
+          "maxSelect",
+          "status",
           "displayOrder",
           "createdAt",
           "updatedAt"
@@ -1700,6 +2027,9 @@
               }
             ]
           },
+          "status": {
+            "$ref": "#/components/schemas/ModifierOptionStatus"
+          },
           "displayOrder": {
             "type": "integer"
           },
@@ -1767,6 +2097,7 @@
           "groupId",
           "name",
           "priceDelta",
+          "status",
           "displayOrder",
           "createdAt",
           "updatedAt"
@@ -2302,6 +2633,26 @@
           },
           "productId": {
             "type": "string"
+          },
+          "productNameSnapshot": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "productCategorySnapshot": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
           },
           "quantity": {
             "type": "integer"
@@ -3335,7 +3686,7 @@
           }
         }
       },
-      "ProductCountAggregateOutputType": {
+      "CategoryCountAggregateOutputType": {
         "type": "object",
         "properties": {
           "id": {
@@ -3347,16 +3698,10 @@
           "name": {
             "type": "integer"
           },
-          "category": {
+          "status": {
             "type": "integer"
           },
-          "price": {
-            "type": "integer"
-          },
-          "currency": {
-            "type": "integer"
-          },
-          "isActive": {
+          "sortOrder": {
             "type": "integer"
           },
           "createdAt": {
@@ -3373,10 +3718,251 @@
           "id",
           "storeId",
           "name",
+          "status",
+          "sortOrder",
+          "createdAt",
+          "updatedAt",
+          "_all"
+        ]
+      },
+      "CategoryAvgAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "sortOrder": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          }
+        }
+      },
+      "CategorySumAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "sortOrder": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          }
+        }
+      },
+      "CategoryMinAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "storeId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "name": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CatalogStatus"
+              }
+            ]
+          },
+          "sortOrder": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "createdAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "updatedAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          }
+        }
+      },
+      "CategoryMaxAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "storeId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "name": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CatalogStatus"
+              }
+            ]
+          },
+          "sortOrder": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "createdAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "updatedAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          }
+        }
+      },
+      "ProductCountAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "storeId": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "integer"
+          },
+          "description": {
+            "type": "integer"
+          },
+          "categoryId": {
+            "type": "integer"
+          },
+          "category": {
+            "type": "integer"
+          },
+          "price": {
+            "type": "integer"
+          },
+          "currency": {
+            "type": "integer"
+          },
+          "isActive": {
+            "type": "integer"
+          },
+          "availabilityStatus": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "integer"
+          },
+          "_all": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "storeId",
+          "name",
+          "description",
+          "categoryId",
           "category",
           "price",
           "currency",
           "isActive",
+          "availabilityStatus",
           "createdAt",
           "updatedAt",
           "_all"
@@ -3451,6 +4037,26 @@
               }
             ]
           },
+          "description": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "categoryId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
           "category": {
             "oneOf": [
               {
@@ -3491,6 +4097,16 @@
               },
               {
                 "type": "boolean"
+              }
+            ]
+          },
+          "availabilityStatus": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ProductAvailabilityStatus"
               }
             ]
           },
@@ -3551,6 +4167,26 @@
               }
             ]
           },
+          "description": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "categoryId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
           "category": {
             "oneOf": [
               {
@@ -3591,6 +4227,16 @@
               },
               {
                 "type": "boolean"
+              }
+            ]
+          },
+          "availabilityStatus": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ProductAvailabilityStatus"
               }
             ]
           },
@@ -3636,6 +4282,15 @@
           "multiSelect": {
             "type": "integer"
           },
+          "minSelect": {
+            "type": "integer"
+          },
+          "maxSelect": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "integer"
+          },
           "displayOrder": {
             "type": "integer"
           },
@@ -3655,6 +4310,9 @@
           "name",
           "required",
           "multiSelect",
+          "minSelect",
+          "maxSelect",
+          "status",
           "displayOrder",
           "createdAt",
           "updatedAt",
@@ -3664,6 +4322,26 @@
       "ProductModifierGroupAvgAggregateOutputType": {
         "type": "object",
         "properties": {
+          "minSelect": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "maxSelect": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
           "displayOrder": {
             "oneOf": [
               {
@@ -3679,6 +4357,26 @@
       "ProductModifierGroupSumAggregateOutputType": {
         "type": "object",
         "properties": {
+          "minSelect": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "maxSelect": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
           "displayOrder": {
             "oneOf": [
               {
@@ -3741,6 +4439,36 @@
               },
               {
                 "type": "boolean"
+              }
+            ]
+          },
+          "minSelect": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "maxSelect": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CatalogStatus"
               }
             ]
           },
@@ -3831,6 +4559,36 @@
               }
             ]
           },
+          "minSelect": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "maxSelect": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CatalogStatus"
+              }
+            ]
+          },
           "displayOrder": {
             "oneOf": [
               {
@@ -3880,6 +4638,9 @@
           "priceDelta": {
             "type": "integer"
           },
+          "status": {
+            "type": "integer"
+          },
           "displayOrder": {
             "type": "integer"
           },
@@ -3898,6 +4659,7 @@
           "groupId",
           "name",
           "priceDelta",
+          "status",
           "displayOrder",
           "createdAt",
           "updatedAt",
@@ -4006,6 +4768,16 @@
               }
             ]
           },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ModifierOptionStatus"
+              }
+            ]
+          },
           "displayOrder": {
             "oneOf": [
               {
@@ -4083,6 +4855,16 @@
               },
               {
                 "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ModifierOptionStatus"
               }
             ]
           },
@@ -5228,6 +6010,12 @@
           "productId": {
             "type": "integer"
           },
+          "productNameSnapshot": {
+            "type": "integer"
+          },
+          "productCategorySnapshot": {
+            "type": "integer"
+          },
           "quantity": {
             "type": "integer"
           },
@@ -5251,6 +6039,8 @@
           "id",
           "orderId",
           "productId",
+          "productNameSnapshot",
+          "productCategorySnapshot",
           "quantity",
           "unitPrice",
           "lineTotal",
@@ -5374,6 +6164,26 @@
               }
             ]
           },
+          "productNameSnapshot": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "productCategorySnapshot": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
           "quantity": {
             "oneOf": [
               {
@@ -5447,6 +6257,26 @@
             ]
           },
           "productId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "productNameSnapshot": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "productCategorySnapshot": {
             "oneOf": [
               {
                 "type": "null"
@@ -7085,6 +7915,337 @@
             "$ref": "#/components/schemas/_AnyObject"
           },
           "_max": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "CategoryCreateArgs": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "data": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "CategoryCreateManyArgs": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/_AnyObject"
+                }
+              }
+            ]
+          },
+          "skipDuplicates": {
+            "type": "boolean",
+            "description": "Do not insert records with unique fields or ID fields that already exist."
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "CategoryFindUniqueArgs": {
+        "type": "object",
+        "required": [
+          "where"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "CategoryFindFirstArgs": {
+        "type": "object",
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "CategoryFindManyArgs": {
+        "type": "object",
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "orderBy": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/_AnyObject"
+                }
+              }
+            ]
+          },
+          "cursor": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "take": {
+            "type": "integer"
+          },
+          "skip": {
+            "type": "integer"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "CategoryUpdateArgs": {
+        "type": "object",
+        "required": [
+          "where",
+          "data"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "data": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "CategoryUpdateManyArgs": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "data": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "CategoryUpsertArgs": {
+        "type": "object",
+        "required": [
+          "create",
+          "update",
+          "where"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "create": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "update": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "CategoryDeleteUniqueArgs": {
+        "type": "object",
+        "required": [
+          "where"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "CategoryDeleteManyArgs": {
+        "type": "object",
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "CategoryCountArgs": {
+        "type": "object",
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "CategoryAggregateArgs": {
+        "type": "object",
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "orderBy": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "cursor": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "take": {
+            "type": "integer"
+          },
+          "skip": {
+            "type": "integer"
+          },
+          "_count": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              }
+            ]
+          },
+          "_min": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_max": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_sum": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_avg": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "CategoryGroupByArgs": {
+        "type": "object",
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "orderBy": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "by": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "having": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "take": {
+            "type": "integer"
+          },
+          "skip": {
+            "type": "integer"
+          },
+          "_count": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              }
+            ]
+          },
+          "_min": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_max": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_sum": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_avg": {
             "$ref": "#/components/schemas/_AnyObject"
           },
           "meta": {
@@ -13023,6 +14184,1109 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/StoreUserGroupByArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/category/create": {
+      "post": {
+        "operationId": "createCategory",
+        "description": "Create a new Category",
+        "tags": [
+          "category"
+        ],
+        "security": [],
+        "responses": {
+          "201": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Category",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryCreateArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/category/createMany": {
+      "post": {
+        "operationId": "createManyCategory",
+        "description": "Create several Category",
+        "tags": [
+          "category"
+        ],
+        "security": [],
+        "responses": {
+          "201": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BatchPayload",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryCreateManyArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/category/findUnique": {
+      "get": {
+        "operationId": "findUniqueCategory",
+        "description": "Find one unique Category",
+        "tags": [
+          "category"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Category",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryFindUniqueArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/category/findFirst": {
+      "get": {
+        "operationId": "findFirstCategory",
+        "description": "Find the first Category matching the given condition",
+        "tags": [
+          "category"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Category",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryFindFirstArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/category/findMany": {
+      "get": {
+        "operationId": "findManyCategory",
+        "description": "Find a list of Category",
+        "tags": [
+          "category"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Category"
+                      },
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryFindManyArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/category/update": {
+      "patch": {
+        "operationId": "updateCategory",
+        "description": "Update a Category",
+        "tags": [
+          "category"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Category",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryUpdateArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/category/updateMany": {
+      "patch": {
+        "operationId": "updateManyCategory",
+        "description": "Update Categorys matching the given condition",
+        "tags": [
+          "category"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BatchPayload",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryUpdateManyArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/category/upsert": {
+      "post": {
+        "operationId": "upsertCategory",
+        "description": "Upsert a Category",
+        "tags": [
+          "category"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Category",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CategoryUpsertArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/category/delete": {
+      "delete": {
+        "operationId": "deleteCategory",
+        "description": "Delete one unique Category",
+        "tags": [
+          "category"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Category",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryDeleteUniqueArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/category/deleteMany": {
+      "delete": {
+        "operationId": "deleteManyCategory",
+        "description": "Delete Categorys matching the given condition",
+        "tags": [
+          "category"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BatchPayload",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryDeleteManyArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/category/count": {
+      "get": {
+        "operationId": "countCategory",
+        "description": "Find a list of Category",
+        "tags": [
+          "category"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "oneOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "$ref": "#/components/schemas/CategoryCountAggregateOutputType"
+                        }
+                      ],
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryCountArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/category/aggregate": {
+      "get": {
+        "operationId": "aggregateCategory",
+        "description": "Aggregate Categorys",
+        "tags": [
+          "category"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AggregateCategory",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryAggregateArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/category/groupBy": {
+      "get": {
+        "operationId": "groupByCategory",
+        "description": "Group Categorys by fields",
+        "tags": [
+          "category"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/CategoryGroupByOutputType"
+                      },
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CategoryGroupByArgs"
                 }
               }
             }

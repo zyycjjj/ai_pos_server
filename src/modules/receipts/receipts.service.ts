@@ -38,7 +38,7 @@ export class ReceiptsService {
       },
       currency: order.currency,
       items: order.items.map((item) => ({
-        name: item.product.name,
+        name: item.productNameSnapshot ?? item.product.name,
         quantity: item.quantity,
         unitPrice: toMoneyNumber(item.unitPrice),
         lineTotal: toMoneyNumber(item.lineTotal),

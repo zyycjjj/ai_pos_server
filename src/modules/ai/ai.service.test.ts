@@ -40,6 +40,15 @@ describe('AiService menu generation', () => {
       product: {
         findMany: async () => [{ id: 'existing', name: 'Espresso' }],
       },
+      category: {
+        findMany: async () => [],
+        create: async ({ data }: any) => ({
+          id: `category-${data.name}`,
+          createdAt: new Date('2026-06-23T00:00:00.000Z'),
+          updatedAt: new Date('2026-06-23T00:00:00.000Z'),
+          ...data,
+        }),
+      },
       $transaction: async (callback: any) => callback(prisma),
       productCreateCalls: createdProducts,
     };

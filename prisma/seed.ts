@@ -72,26 +72,43 @@ async function main() {
     data: { storeId: store.id },
   });
 
+  const categoryNames = ['Coffee', 'Tea', 'Food', 'Desserts', 'Bakery'];
+  const categories = [];
+  for (const [index, name] of categoryNames.entries()) {
+    categories.push(
+      await prisma.category.upsert({
+        where: { storeId_name: { storeId: store.id, name } },
+        update: { status: 'ACTIVE', sortOrder: index + 1 },
+        create: { storeId: store.id, name, status: 'ACTIVE', sortOrder: index + 1 },
+      }),
+    );
+  }
+  const categoryByName = new Map(categories.map((category) => [category.name, category]));
+
   const count = await prisma.product.count({ where: { storeId: store.id } });
   if (count === 0) {
     await prisma.product.createMany({
       data: [
-        { storeId: store.id, name: 'Espresso', category: 'Coffee', price: 3.5 },
-        { storeId: store.id, name: 'Latte', category: 'Coffee', price: 5 },
-        { storeId: store.id, name: 'Cold Brew', category: 'Coffee', price: 5.5 },
-        { storeId: store.id, name: 'Croissant', category: 'Bakery', price: 4.25 },
+        { storeId: store.id, name: 'Americano', description: 'Clean black coffee for quick service.', categoryId: categoryByName.get('Coffee')?.id, category: 'Coffee', price: 3.5 },
+        { storeId: store.id, name: 'Iced Latte', description: 'Espresso with chilled milk.', categoryId: categoryByName.get('Coffee')?.id, category: 'Coffee', price: 5.9 },
+        { storeId: store.id, name: 'Classic Milk Tea', description: 'Black tea with fresh milk.', categoryId: categoryByName.get('Tea')?.id, category: 'Tea', price: 5.75 },
+        { storeId: store.id, name: 'Lemon Tea', description: 'Bright iced tea with lemon.', categoryId: categoryByName.get('Tea')?.id, category: 'Tea', price: 4.75, availabilityStatus: 'SOLD_OUT' },
+        { storeId: store.id, name: 'Chicken Rice', description: 'Fast lunch bowl.', categoryId: categoryByName.get('Food')?.id, category: 'Food', price: 9.5 },
+        { storeId: store.id, name: 'Cheesecake', description: 'Slice dessert.', categoryId: categoryByName.get('Desserts')?.id, category: 'Desserts', price: 6.25, isActive: false },
       ],
     });
   }
 
   const milkTea =
-    (await prisma.product.findFirst({ where: { storeId: store.id, name: 'Milk Tea' } })) ??
+    (await prisma.product.findFirst({ where: { storeId: store.id, name: 'Classic Milk Tea' } })) ??
     (await prisma.product.create({
       data: {
         storeId: store.id,
-        name: 'Milk Tea',
+        name: 'Classic Milk Tea',
+        description: 'Black tea with fresh milk.',
+        categoryId: categoryByName.get('Tea')?.id,
         category: 'Tea',
-        price: 6.5,
+        price: 5.75,
       },
     }));
 
@@ -109,18 +126,37 @@ async function main() {
     where: { id: milkTea.id },
     data: {
       isActive: true,
+      availabilityStatus: 'AVAILABLE',
       modifierGroups: {
         create: [
+          {
+            name: 'Size',
+            required: true,
+            multiSelect: false,
+            minSelect: 1,
+            maxSelect: 1,
+            status: 'ACTIVE',
+            displayOrder: 0,
+            options: {
+              create: [
+                { name: 'Regular', priceDelta: 0, status: 'ACTIVE', displayOrder: 1 },
+                { name: 'Large', priceDelta: 1, status: 'ACTIVE', displayOrder: 2 },
+              ],
+            },
+          },
           {
             name: 'Ice Level',
             required: true,
             multiSelect: false,
+            minSelect: 1,
+            maxSelect: 1,
+            status: 'ACTIVE',
             displayOrder: 1,
             options: {
               create: [
-                { name: 'No Ice', priceDelta: 0, displayOrder: 1 },
-                { name: 'Normal Ice', priceDelta: 0, displayOrder: 2 },
-                { name: 'Hot', priceDelta: 0, displayOrder: 3 },
+                { name: 'No Ice', priceDelta: 0, status: 'ACTIVE', displayOrder: 1 },
+                { name: 'Less Ice', priceDelta: 0, status: 'ACTIVE', displayOrder: 2 },
+                { name: 'Normal Ice', priceDelta: 0, status: 'ACTIVE', displayOrder: 3 },
               ],
             },
           },
@@ -128,12 +164,15 @@ async function main() {
             name: 'Sweetness',
             required: true,
             multiSelect: false,
+            minSelect: 1,
+            maxSelect: 1,
+            status: 'ACTIVE',
             displayOrder: 2,
             options: {
               create: [
-                { name: '0%', priceDelta: 0, displayOrder: 1 },
-                { name: '70%', priceDelta: 2, displayOrder: 2 },
-                { name: '100%', priceDelta: 0, displayOrder: 3 },
+                { name: '0%', priceDelta: 0, status: 'ACTIVE', displayOrder: 1 },
+                { name: '70%', priceDelta: 0, status: 'ACTIVE', displayOrder: 2 },
+                { name: '100%', priceDelta: 0, status: 'ACTIVE', displayOrder: 3 },
               ],
             },
           },
@@ -141,12 +180,15 @@ async function main() {
             name: 'Toppings',
             required: false,
             multiSelect: true,
+            minSelect: 0,
+            maxSelect: 3,
+            status: 'ACTIVE',
             displayOrder: 3,
             options: {
               create: [
-                { name: 'Pearl', priceDelta: 0, displayOrder: 1 },
-                { name: 'Pudding', priceDelta: 3, displayOrder: 2 },
-                { name: 'Coconut Jelly', priceDelta: 0, displayOrder: 3 },
+                { name: 'Pearl', priceDelta: 0.75, status: 'ACTIVE', displayOrder: 1 },
+                { name: 'Coconut Jelly', priceDelta: 0.75, status: 'SOLD_OUT', displayOrder: 2 },
+                { name: 'Cheese Foam', priceDelta: 1.5, status: 'ACTIVE', displayOrder: 3 },
               ],
             },
           },
@@ -204,6 +246,8 @@ async function main() {
           items: {
             create: {
               productId: demoOrder.product.id,
+              productNameSnapshot: demoOrder.product.name,
+              productCategorySnapshot: demoOrder.product.category,
               quantity: demoOrder.quantity,
               unitPrice: demoOrder.unitPrice,
               lineTotal,
