@@ -16,6 +16,9 @@ enum OrderStatus {
   OPEN
   PAID
   CANCELLED
+  VOIDED
+  PARTIALLY_REFUNDED
+  REFUNDED
 }
 
 enum PrintStatus {
@@ -29,6 +32,16 @@ enum PaymentMethod {
   CASH
   CARD
   MANUAL
+}
+
+enum RefundStatus {
+  COMPLETED
+}
+
+enum OrderAuditAction {
+  CANCELLED
+  VOIDED
+  REFUNDED
 }
 
 enum AiDraftStatus {
@@ -68,31 +81,37 @@ enum ModifierOptionStatus {
 }
 
 model Store {
-  id         String      @id() @default(cuid())
+  id         String          @id() @default(cuid())
   name       String
-  code       String?     @unique()
-  timezone   String      @default("Asia/Shanghai")
-  currency   String      @default("USD")
-  active     Boolean     @default(true)
+  code       String?         @unique()
+  timezone   String          @default("Asia/Shanghai")
+  currency   String          @default("USD")
+  active     Boolean         @default(true)
   users      StoreUser[]
   categories Category[]
   products   Product[]
   orders     Order[]
+  refunds    Refund[]
+  auditLogs  OrderAuditLog[]
   aiDrafts   AiDraft[]
   campaigns  Campaign[]
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt()
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt()
 }
 
 model User {
-  id           String      @id() @default(cuid())
-  email        String      @unique()
-  name         String?
-  passwordHash String
-  active       Boolean     @default(true)
-  stores       StoreUser[]
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt()
+  id                     String          @id() @default(cuid())
+  email                  String          @unique()
+  name                   String?
+  passwordHash           String
+  active                 Boolean         @default(true)
+  stores                 StoreUser[]
+  operatedRefunds        Refund[]        @relation("RefundOperator")
+  approvedRefunds        Refund[]        @relation("RefundApprover")
+  operatedOrderAuditLogs OrderAuditLog[] @relation("OrderAuditOperator")
+  approvedOrderAuditLogs OrderAuditLog[] @relation("OrderAuditApprover")
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt()
 }
 
 model StoreUser {
@@ -175,30 +194,32 @@ model ProductModifierOption {
 }
 
 model Order {
-  id              String         @id() @default(cuid())
+  id              String          @id() @default(cuid())
   storeId         String?
-  store           Store?         @relation(fields: [storeId], references: [id])
-  orderNumber     String         @unique()
+  store           Store?          @relation(fields: [storeId], references: [id])
+  orderNumber     String          @unique()
   pickupNumber    String?
-  status          OrderStatus    @default(OPEN)
-  printStatus     PrintStatus    @default(NOT_PRINTED)
+  status          OrderStatus     @default(OPEN)
+  printStatus     PrintStatus     @default(NOT_PRINTED)
   paymentMethod   PaymentMethod?
-  currency        String         @default("USD")
-  subtotal        Decimal        @db.Decimal(10, 2)
-  adjustment      Decimal        @default(0) @db.Decimal(10, 2)
+  currency        String          @default("USD")
+  subtotal        Decimal         @db.Decimal(10, 2)
+  adjustment      Decimal         @default(0) @db.Decimal(10, 2)
   adjustmentType  String?
-  adjustmentValue Decimal?       @db.Decimal(10, 2)
-  tax             Decimal        @default(0) @db.Decimal(10, 2)
-  tip             Decimal        @default(0) @db.Decimal(10, 2)
-  total           Decimal        @db.Decimal(10, 2)
-  cashReceived    Decimal?       @db.Decimal(10, 2)
-  changeDue       Decimal?       @db.Decimal(10, 2)
+  adjustmentValue Decimal?        @db.Decimal(10, 2)
+  tax             Decimal         @default(0) @db.Decimal(10, 2)
+  tip             Decimal         @default(0) @db.Decimal(10, 2)
+  total           Decimal         @db.Decimal(10, 2)
+  cashReceived    Decimal?        @db.Decimal(10, 2)
+  changeDue       Decimal?        @db.Decimal(10, 2)
   paidAt          DateTime?
   printedAt       DateTime?
   items           OrderItem[]
   payments        OrderPayment[]
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt()
+  refunds         Refund[]
+  auditLogs       OrderAuditLog[]
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt()
 
   @@index([storeId])
 }
@@ -215,18 +236,78 @@ model OrderPayment {
 }
 
 model OrderItem {
-  id                      String   @id() @default(cuid())
+  id                      String       @id() @default(cuid())
   orderId                 String
-  order                   Order    @relation(fields: [orderId], references: [id])
+  order                   Order        @relation(fields: [orderId], references: [id])
   productId               String
-  product                 Product  @relation(fields: [productId], references: [id])
+  product                 Product      @relation(fields: [productId], references: [id])
   productNameSnapshot     String?
   productCategorySnapshot String?
   quantity                Int
-  unitPrice               Decimal  @db.Decimal(10, 2)
-  lineTotal               Decimal  @db.Decimal(10, 2)
+  unitPrice               Decimal      @db.Decimal(10, 2)
+  lineTotal               Decimal      @db.Decimal(10, 2)
   modifiers               Json?
-  createdAt               DateTime @default(now())
+  refundItems             RefundItem[]
+  createdAt               DateTime     @default(now())
+}
+
+model Refund {
+  id             String        @id() @default(cuid())
+  storeId        String
+  store          Store         @relation(fields: [storeId], references: [id])
+  orderId        String
+  order          Order         @relation(fields: [orderId], references: [id])
+  refundNumber   String        @unique()
+  idempotencyKey String
+  status         RefundStatus  @default(COMPLETED)
+  method         PaymentMethod
+  amount         Decimal       @db.Decimal(10, 2)
+  reason         String        @db.Text()
+  operatorId     String?
+  operator       User?         @relation("RefundOperator", fields: [operatorId], references: [id])
+  approvedById   String?
+  approvedBy     User?         @relation("RefundApprover", fields: [approvedById], references: [id])
+  items          RefundItem[]
+  createdAt      DateTime      @default(now())
+
+  @@unique([storeId, idempotencyKey])
+  @@index([storeId])
+  @@index([orderId])
+}
+
+model RefundItem {
+  id          String    @id() @default(cuid())
+  refundId    String
+  refund      Refund    @relation(fields: [refundId], references: [id])
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id])
+  quantity    Int
+  amount      Decimal   @db.Decimal(10, 2)
+  createdAt   DateTime  @default(now())
+
+  @@index([refundId])
+  @@index([orderItemId])
+}
+
+model OrderAuditLog {
+  id           String           @id() @default(cuid())
+  storeId      String
+  store        Store            @relation(fields: [storeId], references: [id])
+  orderId      String
+  order        Order            @relation(fields: [orderId], references: [id])
+  action       OrderAuditAction
+  fromStatus   OrderStatus?
+  toStatus     OrderStatus?
+  amount       Decimal?         @db.Decimal(10, 2)
+  reason       String           @db.Text()
+  operatorId   String?
+  operator     User?            @relation("OrderAuditOperator", fields: [operatorId], references: [id])
+  approvedById String?
+  approvedBy   User?            @relation("OrderAuditApprover", fields: [approvedById], references: [id])
+  createdAt    DateTime         @default(now())
+
+  @@index([storeId])
+  @@index([orderId])
 }
 
 model AiDraft {

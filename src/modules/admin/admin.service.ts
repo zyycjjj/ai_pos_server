@@ -37,21 +37,36 @@ export class AdminService {
     const start = new Date();
     start.setHours(0, 0, 0, 0);
 
+    const paidStatuses = [OrderStatus.PAID, OrderStatus.PARTIALLY_REFUNDED, OrderStatus.REFUNDED];
     const paidAggregate = await this.prisma.order.aggregate({
       where: {
         storeId,
-        status: OrderStatus.PAID,
+        status: { in: paidStatuses },
         paidAt: { gte: start },
       },
       _sum: { total: true },
       _count: true,
     });
+    const refundAggregate = await this.prisma.refund.aggregate({
+      where: {
+        storeId,
+        createdAt: { gte: start },
+      },
+      _sum: { amount: true },
+      _count: true,
+    });
     const activeProducts = await this.prisma.product.count({ where: { storeId, isActive: true } });
     const ordersCount = paidAggregate._count;
-    const todaySales = toMoneyNumber(paidAggregate._sum.total ?? 0);
+    const grossSales = toMoneyNumber(paidAggregate._sum.total ?? 0);
+    const refundTotal = toMoneyNumber(refundAggregate._sum.amount ?? 0);
+    const todaySales = toMoneyNumber(grossSales - refundTotal);
 
     return {
       todaySales,
+      grossSales,
+      netSales: todaySales,
+      refundTotal,
+      refundCount: refundAggregate._count,
       ordersCount,
       avgTicket: ordersCount > 0 ? toMoneyNumber(todaySales / ordersCount) : 0,
       activeProducts,

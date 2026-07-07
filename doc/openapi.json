@@ -46,6 +46,18 @@
       "description": "OrderItem operations"
     },
     {
+      "name": "refund",
+      "description": "Refund operations"
+    },
+    {
+      "name": "refundItem",
+      "description": "RefundItem operations"
+    },
+    {
+      "name": "orderAuditLog",
+      "description": "OrderAuditLog operations"
+    },
+    {
       "name": "aiDraft",
       "description": "AiDraft operations"
     },
@@ -96,7 +108,10 @@
         "enum": [
           "OPEN",
           "PAID",
-          "CANCELLED"
+          "CANCELLED",
+          "VOIDED",
+          "PARTIALLY_REFUNDED",
+          "REFUNDED"
         ]
       },
       "PrintStatus": {
@@ -114,6 +129,20 @@
           "CASH",
           "CARD",
           "MANUAL"
+        ]
+      },
+      "RefundStatus": {
+        "type": "string",
+        "enum": [
+          "COMPLETED"
+        ]
+      },
+      "OrderAuditAction": {
+        "type": "string",
+        "enum": [
+          "CANCELLED",
+          "VOIDED",
+          "REFUNDED"
         ]
       },
       "AiDraftStatus": {
@@ -185,6 +214,18 @@
               "$ref": "#/components/schemas/Order"
             }
           },
+          "refunds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Refund"
+            }
+          },
+          "auditLogs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderAuditLog"
+            }
+          },
           "aiDrafts": {
             "type": "array",
             "items": {
@@ -245,6 +286,30 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/StoreUser"
+            }
+          },
+          "operatedRefunds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Refund"
+            }
+          },
+          "approvedRefunds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Refund"
+            }
+          },
+          "operatedOrderAuditLogs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderAuditLog"
+            }
+          },
+          "approvedOrderAuditLogs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderAuditLog"
             }
           },
           "createdAt": {
@@ -783,6 +848,18 @@
               "$ref": "#/components/schemas/OrderPayment"
             }
           },
+          "refunds": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Refund"
+            }
+          },
+          "auditLogs": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderAuditLog"
+            }
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -941,6 +1018,12 @@
               {}
             ]
           },
+          "refundItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RefundItem"
+            }
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -955,6 +1038,275 @@
           "quantity",
           "unitPrice",
           "lineTotal",
+          "createdAt"
+        ]
+      },
+      "Refund": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "storeId": {
+            "type": "string"
+          },
+          "store": {
+            "$ref": "#/components/schemas/Store"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "order": {
+            "$ref": "#/components/schemas/Order"
+          },
+          "refundNumber": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RefundStatus"
+          },
+          "method": {
+            "$ref": "#/components/schemas/PaymentMethod"
+          },
+          "amount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "operatorId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "operator": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/User"
+              }
+            ]
+          },
+          "approvedById": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "approvedBy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/User"
+              }
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RefundItem"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "storeId",
+          "store",
+          "orderId",
+          "order",
+          "refundNumber",
+          "idempotencyKey",
+          "status",
+          "method",
+          "amount",
+          "reason",
+          "createdAt"
+        ]
+      },
+      "RefundItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "refundId": {
+            "type": "string"
+          },
+          "refund": {
+            "$ref": "#/components/schemas/Refund"
+          },
+          "orderItemId": {
+            "type": "string"
+          },
+          "orderItem": {
+            "$ref": "#/components/schemas/OrderItem"
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "amount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "refundId",
+          "refund",
+          "orderItemId",
+          "orderItem",
+          "quantity",
+          "amount",
+          "createdAt"
+        ]
+      },
+      "OrderAuditLog": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "storeId": {
+            "type": "string"
+          },
+          "store": {
+            "$ref": "#/components/schemas/Store"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "order": {
+            "$ref": "#/components/schemas/Order"
+          },
+          "action": {
+            "$ref": "#/components/schemas/OrderAuditAction"
+          },
+          "fromStatus": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OrderStatus"
+              }
+            ]
+          },
+          "toStatus": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OrderStatus"
+              }
+            ]
+          },
+          "amount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "operatorId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "operator": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/User"
+              }
+            ]
+          },
+          "approvedById": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "approvedBy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/User"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "storeId",
+          "store",
+          "orderId",
+          "order",
+          "action",
+          "reason",
           "createdAt"
         ]
       },
@@ -2747,6 +3099,520 @@
           "quantity",
           "unitPrice",
           "lineTotal",
+          "createdAt"
+        ]
+      },
+      "AggregateRefund": {
+        "type": "object",
+        "properties": {
+          "_count": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RefundCountAggregateOutputType"
+              }
+            ]
+          },
+          "_avg": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RefundAvgAggregateOutputType"
+              }
+            ]
+          },
+          "_sum": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RefundSumAggregateOutputType"
+              }
+            ]
+          },
+          "_min": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RefundMinAggregateOutputType"
+              }
+            ]
+          },
+          "_max": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RefundMaxAggregateOutputType"
+              }
+            ]
+          }
+        }
+      },
+      "RefundGroupByOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "storeId": {
+            "type": "string"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "refundNumber": {
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RefundStatus"
+          },
+          "method": {
+            "$ref": "#/components/schemas/PaymentMethod"
+          },
+          "amount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "operatorId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "approvedById": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "_count": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RefundCountAggregateOutputType"
+              }
+            ]
+          },
+          "_avg": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RefundAvgAggregateOutputType"
+              }
+            ]
+          },
+          "_sum": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RefundSumAggregateOutputType"
+              }
+            ]
+          },
+          "_min": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RefundMinAggregateOutputType"
+              }
+            ]
+          },
+          "_max": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RefundMaxAggregateOutputType"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "storeId",
+          "orderId",
+          "refundNumber",
+          "idempotencyKey",
+          "status",
+          "method",
+          "amount",
+          "reason",
+          "createdAt"
+        ]
+      },
+      "AggregateRefundItem": {
+        "type": "object",
+        "properties": {
+          "_count": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RefundItemCountAggregateOutputType"
+              }
+            ]
+          },
+          "_avg": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RefundItemAvgAggregateOutputType"
+              }
+            ]
+          },
+          "_sum": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RefundItemSumAggregateOutputType"
+              }
+            ]
+          },
+          "_min": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RefundItemMinAggregateOutputType"
+              }
+            ]
+          },
+          "_max": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RefundItemMaxAggregateOutputType"
+              }
+            ]
+          }
+        }
+      },
+      "RefundItemGroupByOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "refundId": {
+            "type": "string"
+          },
+          "orderItemId": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "amount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "_count": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RefundItemCountAggregateOutputType"
+              }
+            ]
+          },
+          "_avg": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RefundItemAvgAggregateOutputType"
+              }
+            ]
+          },
+          "_sum": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RefundItemSumAggregateOutputType"
+              }
+            ]
+          },
+          "_min": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RefundItemMinAggregateOutputType"
+              }
+            ]
+          },
+          "_max": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RefundItemMaxAggregateOutputType"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "refundId",
+          "orderItemId",
+          "quantity",
+          "amount",
+          "createdAt"
+        ]
+      },
+      "AggregateOrderAuditLog": {
+        "type": "object",
+        "properties": {
+          "_count": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OrderAuditLogCountAggregateOutputType"
+              }
+            ]
+          },
+          "_avg": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OrderAuditLogAvgAggregateOutputType"
+              }
+            ]
+          },
+          "_sum": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OrderAuditLogSumAggregateOutputType"
+              }
+            ]
+          },
+          "_min": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OrderAuditLogMinAggregateOutputType"
+              }
+            ]
+          },
+          "_max": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OrderAuditLogMaxAggregateOutputType"
+              }
+            ]
+          }
+        }
+      },
+      "OrderAuditLogGroupByOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "storeId": {
+            "type": "string"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "action": {
+            "$ref": "#/components/schemas/OrderAuditAction"
+          },
+          "fromStatus": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OrderStatus"
+              }
+            ]
+          },
+          "toStatus": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OrderStatus"
+              }
+            ]
+          },
+          "amount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "operatorId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "approvedById": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "_count": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OrderAuditLogCountAggregateOutputType"
+              }
+            ]
+          },
+          "_avg": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OrderAuditLogAvgAggregateOutputType"
+              }
+            ]
+          },
+          "_sum": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OrderAuditLogSumAggregateOutputType"
+              }
+            ]
+          },
+          "_min": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OrderAuditLogMinAggregateOutputType"
+              }
+            ]
+          },
+          "_max": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OrderAuditLogMaxAggregateOutputType"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "storeId",
+          "orderId",
+          "action",
+          "reason",
           "createdAt"
         ]
       },
@@ -6319,6 +7185,917 @@
               },
               {
                 "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          }
+        }
+      },
+      "RefundCountAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "storeId": {
+            "type": "integer"
+          },
+          "orderId": {
+            "type": "integer"
+          },
+          "refundNumber": {
+            "type": "integer"
+          },
+          "idempotencyKey": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "method": {
+            "type": "integer"
+          },
+          "amount": {
+            "type": "integer"
+          },
+          "reason": {
+            "type": "integer"
+          },
+          "operatorId": {
+            "type": "integer"
+          },
+          "approvedById": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "integer"
+          },
+          "_all": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "storeId",
+          "orderId",
+          "refundNumber",
+          "idempotencyKey",
+          "status",
+          "method",
+          "amount",
+          "reason",
+          "operatorId",
+          "approvedById",
+          "createdAt",
+          "_all"
+        ]
+      },
+      "RefundAvgAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "RefundSumAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "RefundMinAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "storeId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "orderId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "refundNumber": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "idempotencyKey": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RefundStatus"
+              }
+            ]
+          },
+          "method": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PaymentMethod"
+              }
+            ]
+          },
+          "amount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "operatorId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "approvedById": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "createdAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          }
+        }
+      },
+      "RefundMaxAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "storeId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "orderId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "refundNumber": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "idempotencyKey": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/RefundStatus"
+              }
+            ]
+          },
+          "method": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PaymentMethod"
+              }
+            ]
+          },
+          "amount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "operatorId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "approvedById": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "createdAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          }
+        }
+      },
+      "RefundItemCountAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "refundId": {
+            "type": "integer"
+          },
+          "orderItemId": {
+            "type": "integer"
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "amount": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "integer"
+          },
+          "_all": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "refundId",
+          "orderItemId",
+          "quantity",
+          "amount",
+          "createdAt",
+          "_all"
+        ]
+      },
+      "RefundItemAvgAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "quantity": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "amount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "RefundItemSumAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "quantity": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "amount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "RefundItemMinAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "refundId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "orderItemId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "quantity": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "amount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          }
+        }
+      },
+      "RefundItemMaxAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "refundId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "orderItemId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "quantity": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "amount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "createdAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          }
+        }
+      },
+      "OrderAuditLogCountAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "storeId": {
+            "type": "integer"
+          },
+          "orderId": {
+            "type": "integer"
+          },
+          "action": {
+            "type": "integer"
+          },
+          "fromStatus": {
+            "type": "integer"
+          },
+          "toStatus": {
+            "type": "integer"
+          },
+          "amount": {
+            "type": "integer"
+          },
+          "reason": {
+            "type": "integer"
+          },
+          "operatorId": {
+            "type": "integer"
+          },
+          "approvedById": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "integer"
+          },
+          "_all": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "storeId",
+          "orderId",
+          "action",
+          "fromStatus",
+          "toStatus",
+          "amount",
+          "reason",
+          "operatorId",
+          "approvedById",
+          "createdAt",
+          "_all"
+        ]
+      },
+      "OrderAuditLogAvgAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "OrderAuditLogSumAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "amount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        }
+      },
+      "OrderAuditLogMinAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "storeId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "orderId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "action": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OrderAuditAction"
+              }
+            ]
+          },
+          "fromStatus": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OrderStatus"
+              }
+            ]
+          },
+          "toStatus": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OrderStatus"
+              }
+            ]
+          },
+          "amount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "operatorId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "approvedById": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "createdAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          }
+        }
+      },
+      "OrderAuditLogMaxAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "storeId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "orderId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "action": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OrderAuditAction"
+              }
+            ]
+          },
+          "fromStatus": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OrderStatus"
+              }
+            ]
+          },
+          "toStatus": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/OrderStatus"
+              }
+            ]
+          },
+          "amount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reason": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "operatorId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "approvedById": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
               }
             ]
           },
@@ -10192,6 +11969,999 @@
         }
       },
       "OrderItemGroupByArgs": {
+        "type": "object",
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "orderBy": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "by": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "having": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "take": {
+            "type": "integer"
+          },
+          "skip": {
+            "type": "integer"
+          },
+          "_count": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              }
+            ]
+          },
+          "_min": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_max": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_sum": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_avg": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundCreateArgs": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "data": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundCreateManyArgs": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/_AnyObject"
+                }
+              }
+            ]
+          },
+          "skipDuplicates": {
+            "type": "boolean",
+            "description": "Do not insert records with unique fields or ID fields that already exist."
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundFindUniqueArgs": {
+        "type": "object",
+        "required": [
+          "where"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundFindFirstArgs": {
+        "type": "object",
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundFindManyArgs": {
+        "type": "object",
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "orderBy": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/_AnyObject"
+                }
+              }
+            ]
+          },
+          "cursor": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "take": {
+            "type": "integer"
+          },
+          "skip": {
+            "type": "integer"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundUpdateArgs": {
+        "type": "object",
+        "required": [
+          "where",
+          "data"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "data": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundUpdateManyArgs": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "data": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundUpsertArgs": {
+        "type": "object",
+        "required": [
+          "create",
+          "update",
+          "where"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "create": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "update": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundDeleteUniqueArgs": {
+        "type": "object",
+        "required": [
+          "where"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundDeleteManyArgs": {
+        "type": "object",
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundCountArgs": {
+        "type": "object",
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundAggregateArgs": {
+        "type": "object",
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "orderBy": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "cursor": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "take": {
+            "type": "integer"
+          },
+          "skip": {
+            "type": "integer"
+          },
+          "_count": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              }
+            ]
+          },
+          "_min": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_max": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_sum": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_avg": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundGroupByArgs": {
+        "type": "object",
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "orderBy": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "by": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "having": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "take": {
+            "type": "integer"
+          },
+          "skip": {
+            "type": "integer"
+          },
+          "_count": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              }
+            ]
+          },
+          "_min": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_max": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_sum": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_avg": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundItemCreateArgs": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "data": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundItemCreateManyArgs": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/_AnyObject"
+                }
+              }
+            ]
+          },
+          "skipDuplicates": {
+            "type": "boolean",
+            "description": "Do not insert records with unique fields or ID fields that already exist."
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundItemFindUniqueArgs": {
+        "type": "object",
+        "required": [
+          "where"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundItemFindFirstArgs": {
+        "type": "object",
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundItemFindManyArgs": {
+        "type": "object",
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "orderBy": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/_AnyObject"
+                }
+              }
+            ]
+          },
+          "cursor": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "take": {
+            "type": "integer"
+          },
+          "skip": {
+            "type": "integer"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundItemUpdateArgs": {
+        "type": "object",
+        "required": [
+          "where",
+          "data"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "data": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundItemUpdateManyArgs": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "data": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundItemUpsertArgs": {
+        "type": "object",
+        "required": [
+          "create",
+          "update",
+          "where"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "create": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "update": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundItemDeleteUniqueArgs": {
+        "type": "object",
+        "required": [
+          "where"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundItemDeleteManyArgs": {
+        "type": "object",
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundItemCountArgs": {
+        "type": "object",
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundItemAggregateArgs": {
+        "type": "object",
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "orderBy": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "cursor": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "take": {
+            "type": "integer"
+          },
+          "skip": {
+            "type": "integer"
+          },
+          "_count": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              }
+            ]
+          },
+          "_min": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_max": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_sum": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_avg": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "RefundItemGroupByArgs": {
+        "type": "object",
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "orderBy": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "by": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "having": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "take": {
+            "type": "integer"
+          },
+          "skip": {
+            "type": "integer"
+          },
+          "_count": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              }
+            ]
+          },
+          "_min": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_max": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_sum": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_avg": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "OrderAuditLogCreateArgs": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "data": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "OrderAuditLogCreateManyArgs": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/_AnyObject"
+                }
+              }
+            ]
+          },
+          "skipDuplicates": {
+            "type": "boolean",
+            "description": "Do not insert records with unique fields or ID fields that already exist."
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "OrderAuditLogFindUniqueArgs": {
+        "type": "object",
+        "required": [
+          "where"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "OrderAuditLogFindFirstArgs": {
+        "type": "object",
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "OrderAuditLogFindManyArgs": {
+        "type": "object",
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "orderBy": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/_AnyObject"
+                }
+              }
+            ]
+          },
+          "cursor": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "take": {
+            "type": "integer"
+          },
+          "skip": {
+            "type": "integer"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "OrderAuditLogUpdateArgs": {
+        "type": "object",
+        "required": [
+          "where",
+          "data"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "data": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "OrderAuditLogUpdateManyArgs": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "data": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "OrderAuditLogUpsertArgs": {
+        "type": "object",
+        "required": [
+          "create",
+          "update",
+          "where"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "create": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "update": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "OrderAuditLogDeleteUniqueArgs": {
+        "type": "object",
+        "required": [
+          "where"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "OrderAuditLogDeleteManyArgs": {
+        "type": "object",
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "OrderAuditLogCountArgs": {
+        "type": "object",
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "OrderAuditLogAggregateArgs": {
+        "type": "object",
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "orderBy": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "cursor": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "take": {
+            "type": "integer"
+          },
+          "skip": {
+            "type": "integer"
+          },
+          "_count": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              }
+            ]
+          },
+          "_min": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_max": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_sum": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_avg": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "OrderAuditLogGroupByArgs": {
         "type": "object",
         "properties": {
           "where": {
@@ -21905,6 +24675,3315 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/OrderItemGroupByArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/refund/create": {
+      "post": {
+        "operationId": "createRefund",
+        "description": "Create a new Refund",
+        "tags": [
+          "refund"
+        ],
+        "security": [],
+        "responses": {
+          "201": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Refund",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundCreateArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/refund/createMany": {
+      "post": {
+        "operationId": "createManyRefund",
+        "description": "Create several Refund",
+        "tags": [
+          "refund"
+        ],
+        "security": [],
+        "responses": {
+          "201": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BatchPayload",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundCreateManyArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/refund/findUnique": {
+      "get": {
+        "operationId": "findUniqueRefund",
+        "description": "Find one unique Refund",
+        "tags": [
+          "refund"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Refund",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundFindUniqueArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/refund/findFirst": {
+      "get": {
+        "operationId": "findFirstRefund",
+        "description": "Find the first Refund matching the given condition",
+        "tags": [
+          "refund"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Refund",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundFindFirstArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/refund/findMany": {
+      "get": {
+        "operationId": "findManyRefund",
+        "description": "Find a list of Refund",
+        "tags": [
+          "refund"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Refund"
+                      },
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundFindManyArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/refund/update": {
+      "patch": {
+        "operationId": "updateRefund",
+        "description": "Update a Refund",
+        "tags": [
+          "refund"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Refund",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundUpdateArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/refund/updateMany": {
+      "patch": {
+        "operationId": "updateManyRefund",
+        "description": "Update Refunds matching the given condition",
+        "tags": [
+          "refund"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BatchPayload",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundUpdateManyArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/refund/upsert": {
+      "post": {
+        "operationId": "upsertRefund",
+        "description": "Upsert a Refund",
+        "tags": [
+          "refund"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Refund",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundUpsertArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/refund/delete": {
+      "delete": {
+        "operationId": "deleteRefund",
+        "description": "Delete one unique Refund",
+        "tags": [
+          "refund"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/Refund",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundDeleteUniqueArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/refund/deleteMany": {
+      "delete": {
+        "operationId": "deleteManyRefund",
+        "description": "Delete Refunds matching the given condition",
+        "tags": [
+          "refund"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BatchPayload",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundDeleteManyArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/refund/count": {
+      "get": {
+        "operationId": "countRefund",
+        "description": "Find a list of Refund",
+        "tags": [
+          "refund"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "oneOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "$ref": "#/components/schemas/RefundCountAggregateOutputType"
+                        }
+                      ],
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundCountArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/refund/aggregate": {
+      "get": {
+        "operationId": "aggregateRefund",
+        "description": "Aggregate Refunds",
+        "tags": [
+          "refund"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AggregateRefund",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundAggregateArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/refund/groupBy": {
+      "get": {
+        "operationId": "groupByRefund",
+        "description": "Group Refunds by fields",
+        "tags": [
+          "refund"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RefundGroupByOutputType"
+                      },
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundGroupByArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/refundItem/create": {
+      "post": {
+        "operationId": "createRefundItem",
+        "description": "Create a new RefundItem",
+        "tags": [
+          "refundItem"
+        ],
+        "security": [],
+        "responses": {
+          "201": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RefundItem",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundItemCreateArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/refundItem/createMany": {
+      "post": {
+        "operationId": "createManyRefundItem",
+        "description": "Create several RefundItem",
+        "tags": [
+          "refundItem"
+        ],
+        "security": [],
+        "responses": {
+          "201": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BatchPayload",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundItemCreateManyArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/refundItem/findUnique": {
+      "get": {
+        "operationId": "findUniqueRefundItem",
+        "description": "Find one unique RefundItem",
+        "tags": [
+          "refundItem"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RefundItem",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundItemFindUniqueArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/refundItem/findFirst": {
+      "get": {
+        "operationId": "findFirstRefundItem",
+        "description": "Find the first RefundItem matching the given condition",
+        "tags": [
+          "refundItem"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RefundItem",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundItemFindFirstArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/refundItem/findMany": {
+      "get": {
+        "operationId": "findManyRefundItem",
+        "description": "Find a list of RefundItem",
+        "tags": [
+          "refundItem"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RefundItem"
+                      },
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundItemFindManyArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/refundItem/update": {
+      "patch": {
+        "operationId": "updateRefundItem",
+        "description": "Update a RefundItem",
+        "tags": [
+          "refundItem"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RefundItem",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundItemUpdateArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/refundItem/updateMany": {
+      "patch": {
+        "operationId": "updateManyRefundItem",
+        "description": "Update RefundItems matching the given condition",
+        "tags": [
+          "refundItem"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BatchPayload",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundItemUpdateManyArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/refundItem/upsert": {
+      "post": {
+        "operationId": "upsertRefundItem",
+        "description": "Upsert a RefundItem",
+        "tags": [
+          "refundItem"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RefundItem",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RefundItemUpsertArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/refundItem/delete": {
+      "delete": {
+        "operationId": "deleteRefundItem",
+        "description": "Delete one unique RefundItem",
+        "tags": [
+          "refundItem"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/RefundItem",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundItemDeleteUniqueArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/refundItem/deleteMany": {
+      "delete": {
+        "operationId": "deleteManyRefundItem",
+        "description": "Delete RefundItems matching the given condition",
+        "tags": [
+          "refundItem"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BatchPayload",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundItemDeleteManyArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/refundItem/count": {
+      "get": {
+        "operationId": "countRefundItem",
+        "description": "Find a list of RefundItem",
+        "tags": [
+          "refundItem"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "oneOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "$ref": "#/components/schemas/RefundItemCountAggregateOutputType"
+                        }
+                      ],
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundItemCountArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/refundItem/aggregate": {
+      "get": {
+        "operationId": "aggregateRefundItem",
+        "description": "Aggregate RefundItems",
+        "tags": [
+          "refundItem"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AggregateRefundItem",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundItemAggregateArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/refundItem/groupBy": {
+      "get": {
+        "operationId": "groupByRefundItem",
+        "description": "Group RefundItems by fields",
+        "tags": [
+          "refundItem"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/RefundItemGroupByOutputType"
+                      },
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RefundItemGroupByArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/orderAuditLog/create": {
+      "post": {
+        "operationId": "createOrderAuditLog",
+        "description": "Create a new OrderAuditLog",
+        "tags": [
+          "orderAuditLog"
+        ],
+        "security": [],
+        "responses": {
+          "201": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OrderAuditLog",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderAuditLogCreateArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orderAuditLog/createMany": {
+      "post": {
+        "operationId": "createManyOrderAuditLog",
+        "description": "Create several OrderAuditLog",
+        "tags": [
+          "orderAuditLog"
+        ],
+        "security": [],
+        "responses": {
+          "201": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BatchPayload",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderAuditLogCreateManyArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orderAuditLog/findUnique": {
+      "get": {
+        "operationId": "findUniqueOrderAuditLog",
+        "description": "Find one unique OrderAuditLog",
+        "tags": [
+          "orderAuditLog"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OrderAuditLog",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderAuditLogFindUniqueArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/orderAuditLog/findFirst": {
+      "get": {
+        "operationId": "findFirstOrderAuditLog",
+        "description": "Find the first OrderAuditLog matching the given condition",
+        "tags": [
+          "orderAuditLog"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OrderAuditLog",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderAuditLogFindFirstArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/orderAuditLog/findMany": {
+      "get": {
+        "operationId": "findManyOrderAuditLog",
+        "description": "Find a list of OrderAuditLog",
+        "tags": [
+          "orderAuditLog"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/OrderAuditLog"
+                      },
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderAuditLogFindManyArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/orderAuditLog/update": {
+      "patch": {
+        "operationId": "updateOrderAuditLog",
+        "description": "Update a OrderAuditLog",
+        "tags": [
+          "orderAuditLog"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OrderAuditLog",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderAuditLogUpdateArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orderAuditLog/updateMany": {
+      "patch": {
+        "operationId": "updateManyOrderAuditLog",
+        "description": "Update OrderAuditLogs matching the given condition",
+        "tags": [
+          "orderAuditLog"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BatchPayload",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderAuditLogUpdateManyArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orderAuditLog/upsert": {
+      "post": {
+        "operationId": "upsertOrderAuditLog",
+        "description": "Upsert a OrderAuditLog",
+        "tags": [
+          "orderAuditLog"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OrderAuditLog",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrderAuditLogUpsertArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/orderAuditLog/delete": {
+      "delete": {
+        "operationId": "deleteOrderAuditLog",
+        "description": "Delete one unique OrderAuditLog",
+        "tags": [
+          "orderAuditLog"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OrderAuditLog",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderAuditLogDeleteUniqueArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/orderAuditLog/deleteMany": {
+      "delete": {
+        "operationId": "deleteManyOrderAuditLog",
+        "description": "Delete OrderAuditLogs matching the given condition",
+        "tags": [
+          "orderAuditLog"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BatchPayload",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderAuditLogDeleteManyArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/orderAuditLog/count": {
+      "get": {
+        "operationId": "countOrderAuditLog",
+        "description": "Find a list of OrderAuditLog",
+        "tags": [
+          "orderAuditLog"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "oneOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "$ref": "#/components/schemas/OrderAuditLogCountAggregateOutputType"
+                        }
+                      ],
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderAuditLogCountArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/orderAuditLog/aggregate": {
+      "get": {
+        "operationId": "aggregateOrderAuditLog",
+        "description": "Aggregate OrderAuditLogs",
+        "tags": [
+          "orderAuditLog"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AggregateOrderAuditLog",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderAuditLogAggregateArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/orderAuditLog/groupBy": {
+      "get": {
+        "operationId": "groupByOrderAuditLog",
+        "description": "Group OrderAuditLogs by fields",
+        "tags": [
+          "orderAuditLog"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/OrderAuditLogGroupByOutputType"
+                      },
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderAuditLogGroupByArgs"
                 }
               }
             }

@@ -509,4 +509,111 @@ describe('CheckoutService', () => {
       ],
     );
   });
+
+  it('creates an idempotent item refund and marks the order partially refunded', async () => {
+    const createdAt = new Date('2026-05-20T05:31:25.329Z');
+    const order = {
+      id: 'order-1',
+      storeId: 'test-store',
+      orderNumber: 'POS-1',
+      pickupNumber: '0001',
+      status: 'PAID',
+      printStatus: 'NOT_PRINTED',
+      paymentMethod: 'CARD',
+      currency: 'USD',
+      subtotal: new Decimal('20.00'),
+      adjustment: new Decimal('0.00'),
+      adjustmentType: null,
+      adjustmentValue: null,
+      tax: new Decimal('0.00'),
+      tip: new Decimal('0.00'),
+      total: new Decimal('20.00'),
+      cashReceived: null,
+      changeDue: null,
+      paidAt: createdAt,
+      printedAt: null,
+      createdAt,
+      updatedAt: createdAt,
+      payments: [],
+      refunds: [],
+      auditLogs: [],
+      items: [
+        {
+          id: 'item-1',
+          orderId: 'order-1',
+          productId: 'tea',
+          productNameSnapshot: 'Tea',
+          productCategorySnapshot: 'Drinks',
+          quantity: 2,
+          unitPrice: new Decimal('10.00'),
+          lineTotal: new Decimal('20.00'),
+          modifiers: [],
+          createdAt,
+          refundItems: [],
+          product: {
+            id: 'tea',
+            name: 'Tea',
+            category: 'Drinks',
+            price: new Decimal('10.00'),
+            currency: 'USD',
+            isActive: true,
+            createdAt,
+            updatedAt: createdAt,
+          },
+        },
+      ],
+    };
+    let updatedStatus: string | undefined;
+    const createdRefund = {
+      id: 'refund-1',
+      storeId: 'test-store',
+      orderId: 'order-1',
+      refundNumber: 'REF-1',
+      idempotencyKey: 'refund-key-1',
+      status: 'COMPLETED',
+      method: 'CARD',
+      amount: new Decimal('10.00'),
+      reason: 'Wrong item',
+      operatorId: 'manager-1',
+      approvedById: 'manager-1',
+      createdAt,
+      items: [{ id: 'refund-item-1', refundId: 'refund-1', orderItemId: 'item-1', quantity: 1, amount: new Decimal('10.00'), createdAt }],
+    };
+    const prisma = {
+      refund: {
+        findUnique: async () => null,
+        create: async ({ data }: any) => ({
+          ...createdRefund,
+          refundNumber: data.refundNumber,
+          amount: data.amount,
+          items: data.items.create.map((item: any) => ({ id: 'refund-item-1', refundId: 'refund-1', createdAt, ...item })),
+        }),
+      },
+      order: {
+        findFirst: async () => order,
+        update: async ({ data }: any) => {
+          updatedStatus = data.status;
+          return { ...order, status: data.status };
+        },
+      },
+      orderAuditLog: {
+        create: async () => ({}),
+      },
+      $transaction: async (callback: any) => callback(prisma),
+    };
+
+    const refund = await new CheckoutService(prisma as any).refundOrder(
+      'order-1',
+      {
+        idempotencyKey: 'refund-key-1',
+        reason: 'Wrong item',
+        items: [{ orderItemId: 'item-1', quantity: 1 }],
+      },
+      { id: 'manager-1', email: 'manager@test.dev', name: 'Manager', storeId: 'test-store', role: 'MANAGER' },
+    );
+
+    assert.equal(refund.amount, 10);
+    assert.equal(refund.items[0].quantity, 1);
+    assert.equal(updatedStatus, 'PARTIALLY_REFUNDED');
+  });
 });

@@ -1,10 +1,12 @@
-import type { Order, OrderItem, OrderPayment, Product } from '@prisma/client';
+import type { Order, OrderAuditLog, OrderItem, OrderPayment, Product, Refund, RefundItem } from '@prisma/client';
 
 import { toMoneyNumber } from './money';
 
 type OrderWithItems = Order & {
-  items: Array<OrderItem & { product: Product }>;
+  items: Array<OrderItem & { product: Product; refundItems?: RefundItem[] }>;
   payments?: OrderPayment[];
+  refunds?: Array<Refund & { items?: RefundItem[] }>;
+  auditLogs?: OrderAuditLog[];
 };
 
 export function presentOrder(order: OrderWithItems) {
@@ -29,12 +31,41 @@ export function presentOrder(order: OrderWithItems) {
     printedAt: order.printedAt?.toISOString() ?? null,
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),
+    refundedTotal: toMoneyNumber((order.refunds ?? []).reduce((sum, refund) => sum + toMoneyNumber(refund.amount), 0)),
     payments: (order.payments ?? []).map((payment) => ({
       id: payment.id,
       method: payment.method,
       amount: toMoneyNumber(payment.amount),
       amountReceived: payment.amountReceived == null ? null : toMoneyNumber(payment.amountReceived),
       changeDue: payment.changeDue == null ? null : toMoneyNumber(payment.changeDue),
+    })),
+    refunds: (order.refunds ?? []).map((refund) => ({
+      id: refund.id,
+      refundNumber: refund.refundNumber,
+      status: refund.status,
+      method: refund.method,
+      amount: toMoneyNumber(refund.amount),
+      reason: refund.reason,
+      operatorId: refund.operatorId,
+      approvedById: refund.approvedById,
+      createdAt: refund.createdAt.toISOString(),
+      items: (refund.items ?? []).map((item) => ({
+        id: item.id,
+        orderItemId: item.orderItemId,
+        quantity: item.quantity,
+        amount: toMoneyNumber(item.amount),
+      })),
+    })),
+    auditLogs: (order.auditLogs ?? []).map((log) => ({
+      id: log.id,
+      action: log.action,
+      fromStatus: log.fromStatus,
+      toStatus: log.toStatus,
+      amount: log.amount === null ? null : toMoneyNumber(log.amount),
+      reason: log.reason,
+      operatorId: log.operatorId,
+      approvedById: log.approvedById,
+      createdAt: log.createdAt.toISOString(),
     })),
     items: order.items.map((item) => ({
       id: item.id,
@@ -44,6 +75,7 @@ export function presentOrder(order: OrderWithItems) {
       quantity: item.quantity,
       unitPrice: toMoneyNumber(item.unitPrice),
       lineTotal: toMoneyNumber(item.lineTotal),
+      refundedQuantity: (item.refundItems ?? []).reduce((sum, refundItem) => sum + refundItem.quantity, 0),
       modifiers: item.modifiers ?? [],
     })),
   };

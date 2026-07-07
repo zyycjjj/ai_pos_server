@@ -13,4 +13,10 @@ export class ReceiptsController {
   getReceiptForOrder(@Param('orderId') orderId: string) {
     return this.receiptsService.getReceiptForOrder(orderId);
   }
+
+  @Get('refunds/:refundId')
+  @ApiOperation({ summary: 'Build an 80mm ESC/POS-friendly refund receipt payload.' })
+  getReceiptForRefund(@Param('refundId') refundId: string) {
+    return this.receiptsService.getReceiptForRefund(refundId);
+  }
 }

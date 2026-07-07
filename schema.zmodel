@@ -26,6 +26,9 @@ enum OrderStatus {
   OPEN
   PAID
   CANCELLED
+  VOIDED
+  PARTIALLY_REFUNDED
+  REFUNDED
 }
 
 enum PrintStatus {
@@ -39,6 +42,16 @@ enum PaymentMethod {
   CASH
   CARD
   MANUAL
+}
+
+enum RefundStatus {
+  COMPLETED
+}
+
+enum OrderAuditAction {
+  CANCELLED
+  VOIDED
+  REFUNDED
 }
 
 enum AiDraftStatus {
@@ -88,6 +101,8 @@ model Store {
   categories Category[]
   products  Product[]
   orders    Order[]
+  refunds   Refund[]
+  auditLogs OrderAuditLog[]
   aiDrafts  AiDraft[]
   campaigns Campaign[]
   createdAt DateTime   @default(now())
@@ -103,6 +118,10 @@ model User {
   passwordHash String
   active       Boolean     @default(true)
   stores       StoreUser[]
+  operatedRefunds Refund[] @relation("RefundOperator")
+  approvedRefunds Refund[] @relation("RefundApprover")
+  operatedOrderAuditLogs OrderAuditLog[] @relation("OrderAuditOperator")
+  approvedOrderAuditLogs OrderAuditLog[] @relation("OrderAuditApprover")
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
@@ -218,6 +237,8 @@ model Order {
   printedAt       DateTime?
   items           OrderItem[]
   payments        OrderPayment[]
+  refunds         Refund[]
+  auditLogs       OrderAuditLog[]
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -250,8 +271,71 @@ model OrderItem {
   unitPrice Decimal  @db.Decimal(10, 2)
   lineTotal Decimal  @db.Decimal(10, 2)
   modifiers Json?
+  refundItems RefundItem[]
   createdAt DateTime @default(now())
 
+  @@allow("all", true)
+}
+
+model Refund {
+  id             String        @id @default(cuid())
+  storeId        String
+  store          Store         @relation(fields: [storeId], references: [id])
+  orderId        String
+  order          Order         @relation(fields: [orderId], references: [id])
+  refundNumber   String        @unique
+  idempotencyKey String
+  status         RefundStatus  @default(COMPLETED)
+  method         PaymentMethod
+  amount         Decimal       @db.Decimal(10, 2)
+  reason         String        @db.Text
+  operatorId     String?
+  operator       User?         @relation("RefundOperator", fields: [operatorId], references: [id])
+  approvedById   String?
+  approvedBy     User?         @relation("RefundApprover", fields: [approvedById], references: [id])
+  items          RefundItem[]
+  createdAt      DateTime      @default(now())
+
+  @@unique([storeId, idempotencyKey])
+  @@index([storeId])
+  @@index([orderId])
+  @@allow("all", true)
+}
+
+model RefundItem {
+  id          String    @id @default(cuid())
+  refundId    String
+  refund      Refund    @relation(fields: [refundId], references: [id])
+  orderItemId String
+  orderItem   OrderItem @relation(fields: [orderItemId], references: [id])
+  quantity    Int
+  amount      Decimal   @db.Decimal(10, 2)
+  createdAt   DateTime  @default(now())
+
+  @@index([refundId])
+  @@index([orderItemId])
+  @@allow("all", true)
+}
+
+model OrderAuditLog {
+  id           String           @id @default(cuid())
+  storeId      String
+  store        Store            @relation(fields: [storeId], references: [id])
+  orderId      String
+  order        Order            @relation(fields: [orderId], references: [id])
+  action       OrderAuditAction
+  fromStatus   OrderStatus?
+  toStatus     OrderStatus?
+  amount       Decimal?         @db.Decimal(10, 2)
+  reason       String           @db.Text
+  operatorId   String?
+  operator     User?            @relation("OrderAuditOperator", fields: [operatorId], references: [id])
+  approvedById String?
+  approvedBy   User?            @relation("OrderAuditApprover", fields: [approvedById], references: [id])
+  createdAt    DateTime         @default(now())
+
+  @@index([storeId])
+  @@index([orderId])
   @@allow("all", true)
 }
 

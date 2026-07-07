@@ -1,14 +1,16 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { ModifierOptionStatus, OrderStatus, PaymentMethod, PrintStatus, Prisma, ProductAvailabilityStatus } from '@prisma/client';
+import { ModifierOptionStatus, OrderAuditAction, OrderStatus, PaymentMethod, PrintStatus, Prisma, ProductAvailabilityStatus, RefundStatus, StoreRole } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
-import { multiplyMoney, toMoney } from '@/common/utils/money';
+import { multiplyMoney, toMoney, toMoneyNumber } from '@/common/utils/money';
 import { presentOrder } from '@/common/utils/order-presenter';
 import { StoreContextService } from '@/common/store-context.service';
 import { PrismaService } from '@/prisma/prisma.service';
 
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ListOrdersDto } from './dto/list-orders.dto';
+import { OrderReasonDto, RefundOrderDto, VoidOrderDto } from './dto/order-action.dto';
+import type { AuthRequestUser } from '../auth/auth.types';
 
 type ProductWithModifiers = Prisma.ProductGetPayload<{
   include: {
@@ -17,6 +19,15 @@ type ProductWithModifiers = Prisma.ProductGetPayload<{
         options: true;
       };
     };
+  };
+}>;
+
+type OrderWithLifecycle = Prisma.OrderGetPayload<{
+  include: {
+    items: { include: { product: true; refundItems: true } };
+    payments: true;
+    refunds: { include: { items: true } };
+    auditLogs: true;
   };
 }>;
 
@@ -160,26 +171,143 @@ export class CheckoutService {
     return presentOrder(updated);
   }
 
-  async cancelOrder(id: string) {
+  async cancelOrder(id: string, dto: OrderReasonDto, currentUser?: AuthRequestUser) {
     const order = await this.findOrder(id);
-    if (order.status === OrderStatus.PAID) {
-      throw new BadRequestException('Paid orders cannot be cancelled in MVP checkout.');
+    if (order.status === OrderStatus.CANCELLED) {
+      return presentOrder(order);
+    }
+    if (order.status !== OrderStatus.OPEN) {
+      throw new BadRequestException('Only open orders can be cancelled.');
     }
 
-    const updated = await this.prisma.order.update({
-      where: { id },
-      data: { status: OrderStatus.CANCELLED },
-      include: { items: { include: { product: true } }, payments: true },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const updatedOrder = await tx.order.update({
+        where: { id },
+        data: { status: OrderStatus.CANCELLED },
+        include: this.orderInclude(),
+      });
+      await tx.orderAuditLog.create({
+        data: {
+          storeId: this.getStoreId(),
+          orderId: id,
+          action: OrderAuditAction.CANCELLED,
+          fromStatus: order.status,
+          toStatus: OrderStatus.CANCELLED,
+          reason: dto.reason,
+          operatorId: currentUser?.id,
+        },
+      });
+      return updatedOrder;
     });
 
     return presentOrder(updated);
+  }
+
+  async voidOrder(id: string, dto: VoidOrderDto, currentUser?: AuthRequestUser) {
+    this.assertManagerApproval(currentUser);
+    const order = await this.findOrder(id);
+    if (order.status === OrderStatus.VOIDED) {
+      return presentOrder(order);
+    }
+    if (order.status !== OrderStatus.OPEN && order.status !== OrderStatus.PAID) {
+      throw new BadRequestException('Only open or paid orders can be voided.');
+    }
+    if (this.getRefundedAmount(order).greaterThan(0)) {
+      throw new BadRequestException('Refunded orders cannot be voided.');
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const updatedOrder = await tx.order.update({
+        where: { id },
+        data: { status: OrderStatus.VOIDED },
+        include: this.orderInclude(),
+      });
+      await tx.orderAuditLog.create({
+        data: {
+          storeId: this.getStoreId(),
+          orderId: id,
+          action: OrderAuditAction.VOIDED,
+          fromStatus: order.status,
+          toStatus: OrderStatus.VOIDED,
+          reason: dto.reason,
+          operatorId: currentUser?.id,
+          approvedById: dto.approvedById ?? currentUser?.id,
+        },
+      });
+      return updatedOrder;
+    });
+
+    return presentOrder(updated);
+  }
+
+  async refundOrder(id: string, dto: RefundOrderDto, currentUser?: AuthRequestUser) {
+    this.assertManagerApproval(currentUser);
+    const storeId = this.getStoreId();
+    const existingRefund = await this.prisma.refund.findUnique({
+      where: { storeId_idempotencyKey: { storeId, idempotencyKey: dto.idempotencyKey } },
+      include: { items: true },
+    });
+    if (existingRefund) {
+      return this.presentRefund(existingRefund);
+    }
+
+    const order = await this.findOrder(id);
+    if (order.status !== OrderStatus.PAID && order.status !== OrderStatus.PARTIALLY_REFUNDED) {
+      throw new BadRequestException('Only paid orders can be refunded.');
+    }
+
+    const refundPlan = this.buildRefundPlan(order, dto);
+    const updatedStatus = this.resolveRefundedStatus(order, refundPlan.amount);
+    const refundNumber = this.createRefundNumber();
+
+    const refund = await this.prisma.$transaction(
+      async (tx) => {
+        const createdRefund = await tx.refund.create({
+          data: {
+            storeId,
+            orderId: id,
+            refundNumber,
+            idempotencyKey: dto.idempotencyKey,
+            status: RefundStatus.COMPLETED,
+            method: (dto.method ?? order.paymentMethod ?? PaymentMethod.MANUAL) as PaymentMethod,
+            amount: refundPlan.amount,
+            reason: dto.reason,
+            operatorId: currentUser?.id,
+            approvedById: dto.approvedById ?? currentUser?.id,
+            items: refundPlan.items.length > 0 ? { create: refundPlan.items } : undefined,
+          },
+          include: { items: true },
+        });
+        await tx.order.update({
+          where: { id },
+          data: { status: updatedStatus },
+        });
+        await tx.orderAuditLog.create({
+          data: {
+            storeId,
+            orderId: id,
+            action: OrderAuditAction.REFUNDED,
+            fromStatus: order.status,
+            toStatus: updatedStatus,
+            amount: refundPlan.amount,
+            reason: dto.reason,
+            operatorId: currentUser?.id,
+            approvedById: dto.approvedById ?? currentUser?.id,
+          },
+        });
+        return createdRefund;
+      },
+      { timeout: 15_000 },
+    );
+
+    return this.presentRefund(refund);
   }
 
   private async findOrder(id: string) {
     const storeId = this.getStoreId();
     const order = await this.prisma.order.findFirst({
       where: { id, storeId },
-      include: { items: { include: { product: true } }, payments: true },
+      include: this.orderInclude(),
     });
     if (!order) {
       throw new NotFoundException('Order not found.');
@@ -191,6 +319,98 @@ export class CheckoutService {
     const timestamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
     const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
     return `POS-${timestamp}-${suffix}`;
+  }
+
+  private createRefundNumber() {
+    const timestamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
+    const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
+    return `REF-${timestamp}-${suffix}`;
+  }
+
+  private buildRefundPlan(order: OrderWithLifecycle, dto: RefundOrderDto) {
+    const remainingOrderAmount = order.total.minus(this.getRefundedAmount(order)).toDecimalPlaces(2);
+    if (remainingOrderAmount.lessThanOrEqualTo(0)) {
+      throw new BadRequestException('Order has no refundable balance.');
+    }
+
+    if (dto.items?.length) {
+      const itemPlans = dto.items.map((item) => {
+        const orderItem = order.items.find((candidate) => candidate.id === item.orderItemId);
+        if (!orderItem) {
+          throw new BadRequestException(`Order item not found: ${item.orderItemId}`);
+        }
+        const alreadyRefundedQuantity = orderItem.refundItems.reduce((sum, refundItem) => sum + refundItem.quantity, 0);
+        const refundableQuantity = orderItem.quantity - alreadyRefundedQuantity;
+        if (item.quantity > refundableQuantity) {
+          throw new BadRequestException(`Refund quantity exceeds refundable quantity for item: ${item.orderItemId}`);
+        }
+        const amount = orderItem.lineTotal.div(orderItem.quantity).mul(item.quantity).toDecimalPlaces(2);
+        return {
+          orderItemId: item.orderItemId,
+          quantity: item.quantity,
+          amount,
+        };
+      });
+      const amount = itemPlans.reduce((sum, item) => sum.plus(item.amount), new Decimal(0)).toDecimalPlaces(2);
+      if (amount.greaterThan(remainingOrderAmount)) {
+        throw new BadRequestException('Refund amount exceeds refundable balance.');
+      }
+      return { amount, items: itemPlans };
+    }
+
+    const amount = dto.amount === undefined ? remainingOrderAmount : toMoney(dto.amount);
+    if (amount.greaterThan(remainingOrderAmount)) {
+      throw new BadRequestException('Refund amount exceeds refundable balance.');
+    }
+    return { amount, items: [] };
+  }
+
+  private resolveRefundedStatus(order: OrderWithLifecycle, newRefundAmount: Decimal) {
+    const refundedAmount = this.getRefundedAmount(order).plus(newRefundAmount).toDecimalPlaces(2);
+    if (refundedAmount.greaterThanOrEqualTo(order.total)) {
+      return OrderStatus.REFUNDED;
+    }
+    return OrderStatus.PARTIALLY_REFUNDED;
+  }
+
+  private getRefundedAmount(order: Pick<OrderWithLifecycle, 'refunds'>) {
+    return order.refunds.reduce((sum, refund) => sum.plus(refund.amount), new Decimal(0)).toDecimalPlaces(2);
+  }
+
+  private assertManagerApproval(currentUser?: AuthRequestUser) {
+    if (!currentUser || (currentUser.role !== StoreRole.OWNER && currentUser.role !== StoreRole.MANAGER)) {
+      throw new BadRequestException('Manager approval is required.');
+    }
+  }
+
+  private presentRefund(refund: Prisma.RefundGetPayload<{ include: { items: true } }>) {
+    return {
+      id: refund.id,
+      refundNumber: refund.refundNumber,
+      orderId: refund.orderId,
+      status: refund.status,
+      method: refund.method,
+      amount: toMoneyNumber(refund.amount),
+      reason: refund.reason,
+      operatorId: refund.operatorId,
+      approvedById: refund.approvedById,
+      createdAt: refund.createdAt.toISOString(),
+      items: refund.items.map((item) => ({
+        id: item.id,
+        orderItemId: item.orderItemId,
+        quantity: item.quantity,
+        amount: toMoneyNumber(item.amount),
+      })),
+    };
+  }
+
+  private orderInclude() {
+    return {
+      items: { include: { product: true, refundItems: true } },
+      payments: true,
+      refunds: { include: { items: true } },
+      auditLogs: true,
+    } satisfies Prisma.OrderInclude;
   }
 
   private async createPickupNumber(tx: Prisma.TransactionClient) {
