@@ -35,8 +35,8 @@ export class CheckoutController {
   @Post('orders')
   @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
   @ApiOperation({ summary: 'Create an MVP checkout order from active products.' })
-  createOrder(@Body() dto: CreateOrderDto) {
-    return this.checkoutService.createOrder(dto);
+  createOrder(@Body() dto: CreateOrderDto, @CurrentUser() currentUser?: AuthRequestUser) {
+    return this.checkoutService.createOrder(dto, currentUser);
   }
 
   @Patch('orders/:id/mark-paid')

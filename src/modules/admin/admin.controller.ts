@@ -4,6 +4,7 @@ import { StoreRole } from '@prisma/client';
 
 import { Roles } from '@/modules/auth/roles.decorator';
 import { RolesGuard } from '@/modules/auth/roles.guard';
+import { ShiftsService } from '@/modules/shifts/shifts.service';
 
 import { AdminService } from './admin.service';
 import { CreateStaffDto } from './dto/create-staff.dto';
@@ -26,12 +27,27 @@ import {
 @UseGuards(RolesGuard)
 @Roles(StoreRole.OWNER, StoreRole.MANAGER)
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly shiftsService: ShiftsService,
+  ) {}
 
   @Get('dashboard')
   @ApiOperation({ summary: 'Read Admin dashboard metrics for the active store.' })
   getDashboard() {
     return this.adminService.getDashboard();
+  }
+
+  @Get('shifts')
+  @ApiOperation({ summary: 'List shift history for Admin management.' })
+  listShifts() {
+    return this.shiftsService.listShifts();
+  }
+
+  @Get('shifts/:id')
+  @ApiOperation({ summary: 'Read shift detail for Admin management.' })
+  getShift(@Param('id') id: string) {
+    return this.shiftsService.getShift(id);
   }
 
   @Get('staff')

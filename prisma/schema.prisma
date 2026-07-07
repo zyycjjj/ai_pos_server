@@ -44,6 +44,26 @@ enum OrderAuditAction {
   REFUNDED
 }
 
+enum ShiftStatus {
+  OPEN
+  CLOSED
+}
+
+enum CashMovementType {
+  OPENING
+  SALE
+  REFUND
+  CASH_IN
+  CASH_OUT
+  ADJUSTMENT
+}
+
+enum CashMovementReferenceType {
+  ORDER_PAYMENT
+  REFUND
+  MANUAL
+}
+
 enum AiDraftStatus {
   DRAFT
   CONFIRMED
@@ -81,22 +101,24 @@ enum ModifierOptionStatus {
 }
 
 model Store {
-  id         String          @id() @default(cuid())
-  name       String
-  code       String?         @unique()
-  timezone   String          @default("Asia/Shanghai")
-  currency   String          @default("USD")
-  active     Boolean         @default(true)
-  users      StoreUser[]
-  categories Category[]
-  products   Product[]
-  orders     Order[]
-  refunds    Refund[]
-  auditLogs  OrderAuditLog[]
-  aiDrafts   AiDraft[]
-  campaigns  Campaign[]
-  createdAt  DateTime        @default(now())
-  updatedAt  DateTime        @updatedAt()
+  id            String          @id() @default(cuid())
+  name          String
+  code          String?         @unique()
+  timezone      String          @default("Asia/Shanghai")
+  currency      String          @default("USD")
+  active        Boolean         @default(true)
+  users         StoreUser[]
+  categories    Category[]
+  products      Product[]
+  orders        Order[]
+  refunds       Refund[]
+  auditLogs     OrderAuditLog[]
+  shifts        Shift[]
+  cashMovements CashMovement[]
+  aiDrafts      AiDraft[]
+  campaigns     Campaign[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt()
 }
 
 model User {
@@ -110,6 +132,10 @@ model User {
   approvedRefunds        Refund[]        @relation("RefundApprover")
   operatedOrderAuditLogs OrderAuditLog[] @relation("OrderAuditOperator")
   approvedOrderAuditLogs OrderAuditLog[] @relation("OrderAuditApprover")
+  shifts                 Shift[]         @relation("ShiftStaff")
+  openedShifts           Shift[]         @relation("ShiftOpenedBy")
+  closedShifts           Shift[]         @relation("ShiftClosedBy")
+  cashMovements          CashMovement[]  @relation("CashMovementCreatedBy")
   createdAt              DateTime        @default(now())
   updatedAt              DateTime        @updatedAt()
 }
@@ -308,6 +334,52 @@ model OrderAuditLog {
 
   @@index([storeId])
   @@index([orderId])
+}
+
+model Shift {
+  id             String         @id() @default(cuid())
+  storeId        String
+  store          Store          @relation(fields: [storeId], references: [id])
+  userId         String
+  user           User           @relation("ShiftStaff", fields: [userId], references: [id])
+  status         ShiftStatus    @default(OPEN)
+  openedAt       DateTime       @default(now())
+  closedAt       DateTime?
+  openingCash    Decimal        @default(0) @db.Decimal(10, 2)
+  expectedCash   Decimal        @default(0) @db.Decimal(10, 2)
+  actualCash     Decimal?       @db.Decimal(10, 2)
+  variance       Decimal?       @db.Decimal(10, 2)
+  openedByUserId String?
+  openedBy       User?          @relation("ShiftOpenedBy", fields: [openedByUserId], references: [id])
+  closedByUserId String?
+  closedBy       User?          @relation("ShiftClosedBy", fields: [closedByUserId], references: [id])
+  notes          String?        @db.Text()
+  movements      CashMovement[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt()
+
+  @@index([storeId])
+  @@index([storeId, userId, status])
+}
+
+model CashMovement {
+  id              String                    @id() @default(cuid())
+  storeId         String
+  store           Store                     @relation(fields: [storeId], references: [id])
+  shiftId         String
+  shift           Shift                     @relation(fields: [shiftId], references: [id])
+  type            CashMovementType
+  amount          Decimal                   @db.Decimal(10, 2)
+  reason          String                    @db.Text()
+  referenceType   CashMovementReferenceType @default(MANUAL)
+  referenceId     String?
+  createdByUserId String?
+  createdBy       User?                     @relation("CashMovementCreatedBy", fields: [createdByUserId], references: [id])
+  createdAt       DateTime                  @default(now())
+
+  @@unique([storeId, type, referenceType, referenceId])
+  @@index([storeId])
+  @@index([shiftId])
 }
 
 model AiDraft {

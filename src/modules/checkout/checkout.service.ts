@@ -6,6 +6,7 @@ import { multiplyMoney, toMoney, toMoneyNumber } from '@/common/utils/money';
 import { presentOrder } from '@/common/utils/order-presenter';
 import { StoreContextService } from '@/common/store-context.service';
 import { PrismaService } from '@/prisma/prisma.service';
+import { ShiftsService } from '@/modules/shifts/shifts.service';
 
 import { CreateOrderDto } from './dto/create-order.dto';
 import { ListOrdersDto } from './dto/list-orders.dto';
@@ -36,6 +37,7 @@ export class CheckoutService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storeContext?: StoreContextService,
+    private readonly shiftsService?: ShiftsService,
   ) {}
 
   async listOrders(query: ListOrdersDto) {
@@ -59,8 +61,9 @@ export class CheckoutService {
     return presentOrder(order);
   }
 
-  async createOrder(dto: CreateOrderDto) {
+  async createOrder(dto: CreateOrderDto, currentUser?: AuthRequestUser) {
     const storeId = this.getStoreId();
+    const activeShift = await this.resolveCheckoutShift(currentUser);
     const productIds = [...new Set(dto.items.map((item) => item.productId))];
     const products = await this.prisma.product.findMany({
       where: { id: { in: productIds }, storeId, isActive: true, availabilityStatus: ProductAvailabilityStatus.AVAILABLE },
@@ -127,6 +130,8 @@ export class CheckoutService {
       paymentResult,
       items,
       storeId,
+      shiftId: activeShift?.id,
+      createdByUserId: currentUser?.id,
     });
 
     return presentOrder(order);
@@ -260,6 +265,11 @@ export class CheckoutService {
     const updatedStatus = this.resolveRefundedStatus(order, refundPlan.amount);
     const refundNumber = this.createRefundNumber();
 
+    const activeShift =
+      (dto.method ?? order.paymentMethod ?? PaymentMethod.MANUAL) === PaymentMethod.CASH && currentUser
+        ? await this.shiftsService?.requireActiveShift(currentUser.id)
+        : undefined;
+
     const refund = await this.prisma.$transaction(
       async (tx) => {
         const createdRefund = await tx.refund.create({
@@ -295,6 +305,16 @@ export class CheckoutService {
             approvedById: dto.approvedById ?? currentUser?.id,
           },
         });
+        if (createdRefund.method === PaymentMethod.CASH && activeShift && this.shiftsService) {
+          await this.shiftsService.recordCashRefundMovement(tx, {
+            storeId,
+            shiftId: activeShift.id,
+            refundId: createdRefund.id,
+            amount: refundPlan.amount,
+            reason: dto.reason,
+            createdByUserId: currentUser?.id,
+          });
+        }
         return createdRefund;
       },
       { timeout: 15_000 },
@@ -443,6 +463,8 @@ export class CheckoutService {
     tip: Decimal;
     total: Decimal;
     paymentResult: ReturnType<CheckoutService['resolvePayments']>;
+    shiftId?: string;
+    createdByUserId?: string;
     items: Array<{
       productId: string;
       productNameSnapshot: string;
@@ -464,7 +486,7 @@ export class CheckoutService {
         return await this.prisma.$transaction(
           async (tx) => {
             const pickupNumber = await this.createPickupNumber(tx);
-            return tx.order.create({
+            const order = await tx.order.create({
               data: {
                 orderNumber: this.createOrderNumber(),
                 storeId: input.storeId,
@@ -487,6 +509,16 @@ export class CheckoutService {
               },
               include: { items: { include: { product: true } }, payments: true },
             });
+            if (input.shiftId && this.shiftsService) {
+              await this.shiftsService.recordCashSaleMovements(tx, {
+                storeId: input.storeId,
+                shiftId: input.shiftId,
+                orderId: order.id,
+                payments: order.payments,
+                createdByUserId: input.createdByUserId,
+              });
+            }
+            return order;
           },
           {
             isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
@@ -642,5 +674,15 @@ export class CheckoutService {
 
   private getStoreId() {
     return this.storeContext?.getStoreId() ?? 'test-store';
+  }
+
+  private async resolveCheckoutShift(currentUser?: AuthRequestUser) {
+    if (!this.shiftsService) {
+      return undefined;
+    }
+    if (!currentUser) {
+      throw new BadRequestException('Open shift required before checkout.');
+    }
+    return this.shiftsService.requireActiveShift(currentUser.id);
   }
 }

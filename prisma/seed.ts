@@ -1,4 +1,4 @@
-import { AiDraftStatus, CampaignStatus, OrderStatus, PaymentMethod, PrismaClient } from '@prisma/client';
+import { AiDraftStatus, CampaignStatus, CashMovementReferenceType, CashMovementType, OrderStatus, PaymentMethod, PrismaClient, ShiftStatus } from '@prisma/client';
 
 import { hashPassword } from '../src/modules/auth/password';
 
@@ -52,6 +52,9 @@ async function main() {
       },
     });
   }
+
+  const owner = await prisma.user.findUniqueOrThrow({ where: { email: 'owner@aipos.test' } });
+  const cashier = await prisma.user.findUniqueOrThrow({ where: { email: 'cashier@aipos.test' } });
 
   const orphanProductIds = await prisma.product.findMany({
     where: { storeId: null },
@@ -262,6 +265,108 @@ async function main() {
         },
       });
     }
+  }
+
+  const shiftCount = await prisma.shift.count({ where: { storeId: store.id } });
+  if (shiftCount === 0) {
+    const now = new Date();
+    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+    const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+
+    await prisma.shift.create({
+      data: {
+        storeId: store.id,
+        userId: cashier.id,
+        status: ShiftStatus.OPEN,
+        openingCash: 200,
+        expectedCash: 335,
+        openedByUserId: cashier.id,
+        notes: 'Seed open shift',
+        movements: {
+          create: [
+            { storeId: store.id, type: CashMovementType.OPENING, amount: 200, reason: 'Opening cash', referenceType: CashMovementReferenceType.MANUAL, createdByUserId: cashier.id },
+            { storeId: store.id, type: CashMovementType.SALE, amount: 120, reason: 'Cash sales', referenceType: CashMovementReferenceType.MANUAL, createdByUserId: cashier.id },
+            { storeId: store.id, type: CashMovementType.CASH_IN, amount: 30, reason: 'Change float refill', referenceType: CashMovementReferenceType.MANUAL, createdByUserId: owner.id },
+            { storeId: store.id, type: CashMovementType.REFUND, amount: 15, reason: 'Cash refund', referenceType: CashMovementReferenceType.MANUAL, createdByUserId: cashier.id },
+          ],
+        },
+      },
+    });
+
+    await prisma.shift.create({
+      data: {
+        storeId: store.id,
+        userId: cashier.id,
+        status: ShiftStatus.CLOSED,
+        openedAt: threeDaysAgo,
+        closedAt: new Date(threeDaysAgo.getTime() + 8 * 60 * 60 * 1000),
+        openingCash: 200,
+        expectedCash: 500,
+        actualCash: 500,
+        variance: 0,
+        openedByUserId: cashier.id,
+        closedByUserId: cashier.id,
+        notes: 'Balanced seed shift',
+        movements: {
+          create: [
+            { storeId: store.id, type: CashMovementType.OPENING, amount: 200, reason: 'Opening cash', referenceType: CashMovementReferenceType.MANUAL, createdByUserId: cashier.id, createdAt: threeDaysAgo },
+            { storeId: store.id, type: CashMovementType.SALE, amount: 350, reason: 'Cash sales', referenceType: CashMovementReferenceType.MANUAL, createdByUserId: cashier.id, createdAt: threeDaysAgo },
+            { storeId: store.id, type: CashMovementType.CASH_OUT, amount: 50, reason: 'Cash drop', referenceType: CashMovementReferenceType.MANUAL, createdByUserId: owner.id, createdAt: threeDaysAgo },
+          ],
+        },
+      },
+    });
+
+    await prisma.shift.create({
+      data: {
+        storeId: store.id,
+        userId: cashier.id,
+        status: ShiftStatus.CLOSED,
+        openedAt: twoDaysAgo,
+        closedAt: new Date(twoDaysAgo.getTime() + 8 * 60 * 60 * 1000),
+        openingCash: 200,
+        expectedCash: 620,
+        actualCash: 615,
+        variance: -5,
+        openedByUserId: cashier.id,
+        closedByUserId: owner.id,
+        notes: 'Short seed shift',
+        movements: {
+          create: [
+            { storeId: store.id, type: CashMovementType.OPENING, amount: 200, reason: 'Opening cash', referenceType: CashMovementReferenceType.MANUAL, createdByUserId: cashier.id, createdAt: twoDaysAgo },
+            { storeId: store.id, type: CashMovementType.SALE, amount: 500, reason: 'Cash sales', referenceType: CashMovementReferenceType.MANUAL, createdByUserId: cashier.id, createdAt: twoDaysAgo },
+            { storeId: store.id, type: CashMovementType.REFUND, amount: 30, reason: 'Cash refund', referenceType: CashMovementReferenceType.MANUAL, createdByUserId: owner.id, createdAt: twoDaysAgo },
+            { storeId: store.id, type: CashMovementType.CASH_IN, amount: 50, reason: 'Change float refill', referenceType: CashMovementReferenceType.MANUAL, createdByUserId: owner.id, createdAt: twoDaysAgo },
+            { storeId: store.id, type: CashMovementType.CASH_OUT, amount: 100, reason: 'Cash drop', referenceType: CashMovementReferenceType.MANUAL, createdByUserId: owner.id, createdAt: twoDaysAgo },
+          ],
+        },
+      },
+    });
+
+    await prisma.shift.create({
+      data: {
+        storeId: store.id,
+        userId: owner.id,
+        status: ShiftStatus.CLOSED,
+        openedAt: yesterday,
+        closedAt: new Date(yesterday.getTime() + 8 * 60 * 60 * 1000),
+        openingCash: 150,
+        expectedCash: 400,
+        actualCash: 405,
+        variance: 5,
+        openedByUserId: owner.id,
+        closedByUserId: owner.id,
+        notes: 'Over seed shift',
+        movements: {
+          create: [
+            { storeId: store.id, type: CashMovementType.OPENING, amount: 150, reason: 'Opening cash', referenceType: CashMovementReferenceType.MANUAL, createdByUserId: owner.id, createdAt: yesterday },
+            { storeId: store.id, type: CashMovementType.SALE, amount: 250, reason: 'Cash sales', referenceType: CashMovementReferenceType.MANUAL, createdByUserId: owner.id, createdAt: yesterday },
+            { storeId: store.id, type: CashMovementType.ADJUSTMENT, amount: 0, reason: 'No adjustment needed', referenceType: CashMovementReferenceType.MANUAL, createdByUserId: owner.id, createdAt: yesterday },
+          ],
+        },
+      },
+    });
   }
 
   const campaignCount = await prisma.campaign.count({ where: { storeId: store.id } });
