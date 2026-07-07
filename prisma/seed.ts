@@ -1,4 +1,14 @@
-import { AiDraftStatus, CampaignStatus, CashMovementReferenceType, CashMovementType, OrderStatus, PaymentMethod, PrismaClient, ShiftStatus } from '@prisma/client';
+import {
+  AiDraftStatus,
+  CampaignStatus,
+  CashMovementReferenceType,
+  CashMovementType,
+  KitchenTicketStatus,
+  OrderStatus,
+  PaymentMethod,
+  PrismaClient,
+  ShiftStatus,
+} from '@prisma/client';
 
 import { hashPassword } from '../src/modules/auth/password';
 
@@ -88,19 +98,71 @@ async function main() {
   }
   const categoryByName = new Map(categories.map((category) => [category.name, category]));
 
+  const kitchenStations = {
+    bar: await prisma.kitchenStation.upsert({
+      where: { storeId_code: { storeId: store.id, code: 'BAR' } },
+      update: { name: 'Bar', status: 'ACTIVE', sortOrder: 1, isDefault: false },
+      create: { storeId: store.id, name: 'Bar', code: 'BAR', status: 'ACTIVE', sortOrder: 1 },
+    }),
+    hot: await prisma.kitchenStation.upsert({
+      where: { storeId_code: { storeId: store.id, code: 'HOT' } },
+      update: { name: 'Hot Kitchen', status: 'ACTIVE', sortOrder: 2, isDefault: false },
+      create: { storeId: store.id, name: 'Hot Kitchen', code: 'HOT', status: 'ACTIVE', sortOrder: 2 },
+    }),
+    dessert: await prisma.kitchenStation.upsert({
+      where: { storeId_code: { storeId: store.id, code: 'DESSERT' } },
+      update: { name: 'Dessert', status: 'ACTIVE', sortOrder: 3, isDefault: false },
+      create: { storeId: store.id, name: 'Dessert', code: 'DESSERT', status: 'ACTIVE', sortOrder: 3 },
+    }),
+    main: await prisma.kitchenStation.upsert({
+      where: { storeId_code: { storeId: store.id, code: 'MAIN' } },
+      update: { name: 'Main Kitchen', status: 'ACTIVE', sortOrder: 99, isDefault: true },
+      create: { storeId: store.id, name: 'Main Kitchen', code: 'MAIN', status: 'ACTIVE', sortOrder: 99, isDefault: true },
+    }),
+  };
+  await prisma.kitchenStation.updateMany({
+    where: { storeId: store.id, id: { not: kitchenStations.main.id } },
+    data: { isDefault: false },
+  });
+  await prisma.category.updateMany({
+    where: { storeId: store.id, name: { in: ['Coffee', 'Tea'] } },
+    data: { defaultKitchenStationId: kitchenStations.bar.id },
+  });
+  await prisma.category.updateMany({
+    where: { storeId: store.id, name: 'Food' },
+    data: { defaultKitchenStationId: kitchenStations.hot.id },
+  });
+  await prisma.category.updateMany({
+    where: { storeId: store.id, name: 'Desserts' },
+    data: { defaultKitchenStationId: kitchenStations.dessert.id },
+  });
+
   const count = await prisma.product.count({ where: { storeId: store.id } });
   if (count === 0) {
     await prisma.product.createMany({
       data: [
         { storeId: store.id, name: 'Americano', description: 'Clean black coffee for quick service.', categoryId: categoryByName.get('Coffee')?.id, category: 'Coffee', price: 3.5 },
-        { storeId: store.id, name: 'Iced Latte', description: 'Espresso with chilled milk.', categoryId: categoryByName.get('Coffee')?.id, category: 'Coffee', price: 5.9 },
-        { storeId: store.id, name: 'Classic Milk Tea', description: 'Black tea with fresh milk.', categoryId: categoryByName.get('Tea')?.id, category: 'Tea', price: 5.75 },
+        { storeId: store.id, name: 'Iced Latte', description: 'Espresso with chilled milk.', categoryId: categoryByName.get('Coffee')?.id, category: 'Coffee', kitchenStationId: kitchenStations.bar.id, price: 5.9 },
+        { storeId: store.id, name: 'Classic Milk Tea', description: 'Black tea with fresh milk.', categoryId: categoryByName.get('Tea')?.id, category: 'Tea', kitchenStationId: kitchenStations.bar.id, price: 5.75 },
         { storeId: store.id, name: 'Lemon Tea', description: 'Bright iced tea with lemon.', categoryId: categoryByName.get('Tea')?.id, category: 'Tea', price: 4.75, availabilityStatus: 'SOLD_OUT' },
-        { storeId: store.id, name: 'Chicken Rice', description: 'Fast lunch bowl.', categoryId: categoryByName.get('Food')?.id, category: 'Food', price: 9.5 },
-        { storeId: store.id, name: 'Cheesecake', description: 'Slice dessert.', categoryId: categoryByName.get('Desserts')?.id, category: 'Desserts', price: 6.25, isActive: false },
+        { storeId: store.id, name: 'Chicken Rice', description: 'Fast lunch bowl.', categoryId: categoryByName.get('Food')?.id, category: 'Food', kitchenStationId: kitchenStations.hot.id, price: 9.5 },
+        { storeId: store.id, name: 'Cheesecake', description: 'Slice dessert.', categoryId: categoryByName.get('Desserts')?.id, category: 'Desserts', kitchenStationId: kitchenStations.dessert.id, price: 6.25, isActive: false },
       ],
     });
   }
+
+  await prisma.product.updateMany({
+    where: { storeId: store.id, name: { in: ['Classic Milk Tea', 'Iced Latte'] } },
+    data: { kitchenStationId: kitchenStations.bar.id },
+  });
+  await prisma.product.updateMany({
+    where: { storeId: store.id, name: 'Chicken Rice' },
+    data: { kitchenStationId: kitchenStations.hot.id },
+  });
+  await prisma.product.updateMany({
+    where: { storeId: store.id, name: 'Cheesecake' },
+    data: { kitchenStationId: kitchenStations.dessert.id },
+  });
 
   const milkTea =
     (await prisma.product.findFirst({ where: { storeId: store.id, name: 'Classic Milk Tea' } })) ??
@@ -130,6 +192,7 @@ async function main() {
     data: {
       isActive: true,
       availabilityStatus: 'AVAILABLE',
+      kitchenStationId: kitchenStations.bar.id,
       modifierGroups: {
         create: [
           {
@@ -261,6 +324,95 @@ async function main() {
               method: PaymentMethod.CARD,
               amount: total,
             },
+          },
+        },
+      });
+    }
+  }
+
+  const kitchenTicketCount = await prisma.kitchenTicket.count({ where: { storeId: store.id } });
+  if (kitchenTicketCount === 0) {
+    const ticketProducts = await prisma.product.findMany({
+      where: { storeId: store.id, name: { in: ['Classic Milk Tea', 'Iced Latte', 'Chicken Rice', 'Cheesecake'] } },
+      orderBy: { name: 'asc' },
+    });
+    const productByName = new Map(ticketProducts.map((product) => [product.name, product]));
+    const ticketSeeds = [
+      { status: KitchenTicketStatus.NEW, station: kitchenStations.bar, product: productByName.get('Classic Milk Tea') ?? products[0], pickup: 'K001' },
+      { status: KitchenTicketStatus.PREPARING, station: kitchenStations.hot, product: productByName.get('Chicken Rice') ?? products[0], pickup: 'K002' },
+      { status: KitchenTicketStatus.READY, station: kitchenStations.bar, product: productByName.get('Iced Latte') ?? products[0], pickup: 'K003' },
+      { status: KitchenTicketStatus.COMPLETED, station: kitchenStations.dessert, product: productByName.get('Cheesecake') ?? products[0], pickup: 'K004' },
+      { status: KitchenTicketStatus.CANCELLED, station: kitchenStations.main, product: products[0], pickup: 'K005' },
+    ];
+    const now = new Date();
+
+    for (const [index, seed] of ticketSeeds.entries()) {
+      if (!seed.product) {
+        continue;
+      }
+      const lineTotal = Number(seed.product.price);
+      const order = await prisma.order.create({
+        data: {
+          storeId: store.id,
+          orderNumber: `KITCHEN-${store.id.slice(-6)}-${String(index + 1).padStart(3, '0')}`,
+          pickupNumber: seed.pickup,
+          status: seed.status === KitchenTicketStatus.CANCELLED ? OrderStatus.CANCELLED : OrderStatus.PAID,
+          paymentMethod: PaymentMethod.CARD,
+          currency: 'USD',
+          subtotal: lineTotal,
+          tax: 0,
+          tip: 0,
+          total: lineTotal,
+          paidAt: seed.status === KitchenTicketStatus.CANCELLED ? undefined : now,
+          items: {
+            create: {
+              productId: seed.product.id,
+              productNameSnapshot: seed.product.name,
+              productCategorySnapshot: seed.product.category,
+              quantity: 1,
+              unitPrice: lineTotal,
+              lineTotal,
+              modifiers: seed.product.name === 'Classic Milk Tea' ? [{ groupName: 'Size', optionName: 'Large', priceDelta: 1 }] : undefined,
+            },
+          },
+          payments:
+            seed.status === KitchenTicketStatus.CANCELLED
+              ? undefined
+              : {
+                  create: {
+                    method: PaymentMethod.CARD,
+                    amount: lineTotal,
+                  },
+                },
+        },
+        include: { items: true },
+      });
+      await prisma.kitchenTicket.create({
+        data: {
+          storeId: store.id,
+          orderId: order.id,
+          stationId: seed.station.id,
+          ticketNumber: `${seed.station.code}-SEED-${String(index + 1).padStart(2, '0')}`,
+          status: seed.status,
+          createdByUserId: owner.id,
+          startedAt:
+            seed.status === KitchenTicketStatus.PREPARING || seed.status === KitchenTicketStatus.READY || seed.status === KitchenTicketStatus.COMPLETED
+              ? now
+              : undefined,
+          readyAt: seed.status === KitchenTicketStatus.READY || seed.status === KitchenTicketStatus.COMPLETED ? now : undefined,
+          completedAt: seed.status === KitchenTicketStatus.COMPLETED ? now : undefined,
+          cancelledAt: seed.status === KitchenTicketStatus.CANCELLED ? now : undefined,
+          cancelReason: seed.status === KitchenTicketStatus.CANCELLED ? 'Seed cancelled ticket' : undefined,
+          items: {
+            create: order.items.map((item) => ({
+              store: { connect: { id: store.id } },
+              orderItem: { connect: { id: item.id } },
+              productId: item.productId,
+              productNameSnapshot: item.productNameSnapshot ?? seed.product.name,
+              quantity: item.quantity,
+              modifiers: item.modifiers ?? undefined,
+              status: seed.status,
+            })),
           },
         },
       });

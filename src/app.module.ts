@@ -10,6 +10,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { AiModule } from './modules/ai/ai.module';
 import { CheckoutModule } from './modules/checkout/checkout.module';
 import { HealthModule } from './modules/health/health.module';
+import { KitchenModule } from './modules/kitchen/kitchen.module';
 import { MetricsModule } from './modules/metrics/metrics.module';
 import { ProductsModule } from './modules/products/products.module';
 import { ReceiptsModule } from './modules/receipts/receipts.module';
@@ -36,6 +37,7 @@ import { useZenFactory } from './zenstack/useZenFactory';
     AuthModule,
     AdminModule,
     AiModule,
+    KitchenModule,
     CheckoutModule,
     ReceiptsModule,
     MetricsModule,

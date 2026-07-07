@@ -66,6 +66,18 @@
       "description": "CashMovement operations"
     },
     {
+      "name": "kitchenStation",
+      "description": "KitchenStation operations"
+    },
+    {
+      "name": "kitchenTicket",
+      "description": "KitchenTicket operations"
+    },
+    {
+      "name": "kitchenTicketItem",
+      "description": "KitchenTicketItem operations"
+    },
+    {
       "name": "aiDraft",
       "description": "AiDraft operations"
     },
@@ -179,6 +191,23 @@
           "MANUAL"
         ]
       },
+      "KitchenStationStatus": {
+        "type": "string",
+        "enum": [
+          "ACTIVE",
+          "INACTIVE"
+        ]
+      },
+      "KitchenTicketStatus": {
+        "type": "string",
+        "enum": [
+          "NEW",
+          "PREPARING",
+          "READY",
+          "COMPLETED",
+          "CANCELLED"
+        ]
+      },
       "AiDraftStatus": {
         "type": "string",
         "enum": [
@@ -270,6 +299,24 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/CashMovement"
+            }
+          },
+          "kitchenStations": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KitchenStation"
+            }
+          },
+          "kitchenTickets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KitchenTicket"
+            }
+          },
+          "kitchenTicketItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KitchenTicketItem"
             }
           },
           "aiDrafts": {
@@ -382,6 +429,12 @@
               "$ref": "#/components/schemas/CashMovement"
             }
           },
+          "createdKitchenTickets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KitchenTicket"
+            }
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -465,6 +518,26 @@
           },
           "sortOrder": {
             "type": "integer"
+          },
+          "defaultKitchenStationId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "defaultKitchenStation": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenStation"
+              }
+            ]
           },
           "products": {
             "type": "array",
@@ -579,6 +652,26 @@
           },
           "availabilityStatus": {
             "$ref": "#/components/schemas/ProductAvailabilityStatus"
+          },
+          "kitchenStationId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "kitchenStation": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenStation"
+              }
+            ]
           },
           "modifierGroups": {
             "type": "array",
@@ -930,6 +1023,12 @@
               "$ref": "#/components/schemas/OrderAuditLog"
             }
           },
+          "kitchenTickets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KitchenTicket"
+            }
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -1092,6 +1191,12 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/RefundItem"
+            }
+          },
+          "kitchenTicketItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KitchenTicketItem"
             }
           },
           "createdAt": {
@@ -1624,6 +1729,285 @@
           "reason",
           "referenceType",
           "createdAt"
+        ]
+      },
+      "KitchenStation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "storeId": {
+            "type": "string"
+          },
+          "store": {
+            "$ref": "#/components/schemas/Store"
+          },
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/KitchenStationStatus"
+          },
+          "sortOrder": {
+            "type": "integer"
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "products": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Product"
+            }
+          },
+          "categories": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Category"
+            }
+          },
+          "tickets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KitchenTicket"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "storeId",
+          "store",
+          "name",
+          "code",
+          "status",
+          "sortOrder",
+          "isDefault",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "KitchenTicket": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "storeId": {
+            "type": "string"
+          },
+          "store": {
+            "$ref": "#/components/schemas/Store"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "order": {
+            "$ref": "#/components/schemas/Order"
+          },
+          "stationId": {
+            "type": "string"
+          },
+          "station": {
+            "$ref": "#/components/schemas/KitchenStation"
+          },
+          "ticketNumber": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/KitchenTicketStatus"
+          },
+          "startedAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "readyAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "completedAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "cancelledAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "cancelReason": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "createdByUserId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "createdBy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/User"
+              }
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/KitchenTicketItem"
+            }
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "storeId",
+          "store",
+          "orderId",
+          "order",
+          "stationId",
+          "station",
+          "ticketNumber",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "KitchenTicketItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "storeId": {
+            "type": "string"
+          },
+          "store": {
+            "$ref": "#/components/schemas/Store"
+          },
+          "ticketId": {
+            "type": "string"
+          },
+          "ticket": {
+            "$ref": "#/components/schemas/KitchenTicket"
+          },
+          "orderItemId": {
+            "type": "string"
+          },
+          "orderItem": {
+            "$ref": "#/components/schemas/OrderItem"
+          },
+          "productId": {
+            "type": "string"
+          },
+          "productNameSnapshot": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "modifiers": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {}
+            ]
+          },
+          "notes": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/KitchenTicketStatus"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "storeId",
+          "store",
+          "ticketId",
+          "ticket",
+          "orderItemId",
+          "orderItem",
+          "productId",
+          "productNameSnapshot",
+          "quantity",
+          "status",
+          "createdAt",
+          "updatedAt"
         ]
       },
       "AiDraft": {
@@ -2198,6 +2582,16 @@
           "sortOrder": {
             "type": "integer"
           },
+          "defaultKitchenStationId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -2389,6 +2783,16 @@
           },
           "availabilityStatus": {
             "$ref": "#/components/schemas/ProductAvailabilityStatus"
+          },
+          "kitchenStationId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
           },
           "createdAt": {
             "type": "string",
@@ -4336,6 +4740,498 @@
           "createdAt"
         ]
       },
+      "AggregateKitchenStation": {
+        "type": "object",
+        "properties": {
+          "_count": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenStationCountAggregateOutputType"
+              }
+            ]
+          },
+          "_avg": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenStationAvgAggregateOutputType"
+              }
+            ]
+          },
+          "_sum": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenStationSumAggregateOutputType"
+              }
+            ]
+          },
+          "_min": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenStationMinAggregateOutputType"
+              }
+            ]
+          },
+          "_max": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenStationMaxAggregateOutputType"
+              }
+            ]
+          }
+        }
+      },
+      "KitchenStationGroupByOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "storeId": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "code": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/KitchenStationStatus"
+          },
+          "sortOrder": {
+            "type": "integer"
+          },
+          "isDefault": {
+            "type": "boolean"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "_count": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenStationCountAggregateOutputType"
+              }
+            ]
+          },
+          "_avg": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenStationAvgAggregateOutputType"
+              }
+            ]
+          },
+          "_sum": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenStationSumAggregateOutputType"
+              }
+            ]
+          },
+          "_min": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenStationMinAggregateOutputType"
+              }
+            ]
+          },
+          "_max": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenStationMaxAggregateOutputType"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "storeId",
+          "name",
+          "code",
+          "status",
+          "sortOrder",
+          "isDefault",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "AggregateKitchenTicket": {
+        "type": "object",
+        "properties": {
+          "_count": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenTicketCountAggregateOutputType"
+              }
+            ]
+          },
+          "_min": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenTicketMinAggregateOutputType"
+              }
+            ]
+          },
+          "_max": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenTicketMaxAggregateOutputType"
+              }
+            ]
+          }
+        }
+      },
+      "KitchenTicketGroupByOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "storeId": {
+            "type": "string"
+          },
+          "orderId": {
+            "type": "string"
+          },
+          "stationId": {
+            "type": "string"
+          },
+          "ticketNumber": {
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/KitchenTicketStatus"
+          },
+          "startedAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "readyAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "completedAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "cancelledAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "cancelReason": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "createdByUserId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "_count": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenTicketCountAggregateOutputType"
+              }
+            ]
+          },
+          "_min": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenTicketMinAggregateOutputType"
+              }
+            ]
+          },
+          "_max": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenTicketMaxAggregateOutputType"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "storeId",
+          "orderId",
+          "stationId",
+          "ticketNumber",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
+      "AggregateKitchenTicketItem": {
+        "type": "object",
+        "properties": {
+          "_count": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenTicketItemCountAggregateOutputType"
+              }
+            ]
+          },
+          "_avg": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenTicketItemAvgAggregateOutputType"
+              }
+            ]
+          },
+          "_sum": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenTicketItemSumAggregateOutputType"
+              }
+            ]
+          },
+          "_min": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenTicketItemMinAggregateOutputType"
+              }
+            ]
+          },
+          "_max": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenTicketItemMaxAggregateOutputType"
+              }
+            ]
+          }
+        }
+      },
+      "KitchenTicketItemGroupByOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "storeId": {
+            "type": "string"
+          },
+          "ticketId": {
+            "type": "string"
+          },
+          "orderItemId": {
+            "type": "string"
+          },
+          "productId": {
+            "type": "string"
+          },
+          "productNameSnapshot": {
+            "type": "string"
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "modifiers": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {}
+            ]
+          },
+          "notes": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "status": {
+            "$ref": "#/components/schemas/KitchenTicketStatus"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "_count": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenTicketItemCountAggregateOutputType"
+              }
+            ]
+          },
+          "_avg": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenTicketItemAvgAggregateOutputType"
+              }
+            ]
+          },
+          "_sum": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenTicketItemSumAggregateOutputType"
+              }
+            ]
+          },
+          "_min": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenTicketItemMinAggregateOutputType"
+              }
+            ]
+          },
+          "_max": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenTicketItemMaxAggregateOutputType"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "storeId",
+          "ticketId",
+          "orderItemId",
+          "productId",
+          "productNameSnapshot",
+          "quantity",
+          "status",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
       "AggregateAiDraft": {
         "type": "object",
         "properties": {
@@ -5290,6 +6186,9 @@
           "sortOrder": {
             "type": "integer"
           },
+          "defaultKitchenStationId": {
+            "type": "integer"
+          },
           "createdAt": {
             "type": "integer"
           },
@@ -5306,6 +6205,7 @@
           "name",
           "status",
           "sortOrder",
+          "defaultKitchenStationId",
           "createdAt",
           "updatedAt",
           "_all"
@@ -5394,6 +6294,16 @@
               }
             ]
           },
+          "defaultKitchenStationId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
           "createdAt": {
             "oneOf": [
               {
@@ -5471,6 +6381,16 @@
               }
             ]
           },
+          "defaultKitchenStationId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
           "createdAt": {
             "oneOf": [
               {
@@ -5528,6 +6448,9 @@
           "availabilityStatus": {
             "type": "integer"
           },
+          "kitchenStationId": {
+            "type": "integer"
+          },
           "createdAt": {
             "type": "integer"
           },
@@ -5549,6 +6472,7 @@
           "currency",
           "isActive",
           "availabilityStatus",
+          "kitchenStationId",
           "createdAt",
           "updatedAt",
           "_all"
@@ -5696,6 +6620,16 @@
               }
             ]
           },
+          "kitchenStationId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
           "createdAt": {
             "oneOf": [
               {
@@ -5823,6 +6757,16 @@
               },
               {
                 "$ref": "#/components/schemas/ProductAvailabilityStatus"
+              }
+            ]
+          },
+          "kitchenStationId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
               }
             ]
           },
@@ -9652,6 +10596,969 @@
             ]
           },
           "createdAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          }
+        }
+      },
+      "KitchenStationCountAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "storeId": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "integer"
+          },
+          "code": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "sortOrder": {
+            "type": "integer"
+          },
+          "isDefault": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "integer"
+          },
+          "_all": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "storeId",
+          "name",
+          "code",
+          "status",
+          "sortOrder",
+          "isDefault",
+          "createdAt",
+          "updatedAt",
+          "_all"
+        ]
+      },
+      "KitchenStationAvgAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "sortOrder": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          }
+        }
+      },
+      "KitchenStationSumAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "sortOrder": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          }
+        }
+      },
+      "KitchenStationMinAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "storeId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "name": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "code": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenStationStatus"
+              }
+            ]
+          },
+          "sortOrder": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "isDefault": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "createdAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "updatedAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          }
+        }
+      },
+      "KitchenStationMaxAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "storeId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "name": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "code": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenStationStatus"
+              }
+            ]
+          },
+          "sortOrder": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "isDefault": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "boolean"
+              }
+            ]
+          },
+          "createdAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "updatedAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          }
+        }
+      },
+      "KitchenTicketCountAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "storeId": {
+            "type": "integer"
+          },
+          "orderId": {
+            "type": "integer"
+          },
+          "stationId": {
+            "type": "integer"
+          },
+          "ticketNumber": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "startedAt": {
+            "type": "integer"
+          },
+          "readyAt": {
+            "type": "integer"
+          },
+          "completedAt": {
+            "type": "integer"
+          },
+          "cancelledAt": {
+            "type": "integer"
+          },
+          "cancelReason": {
+            "type": "integer"
+          },
+          "createdByUserId": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "integer"
+          },
+          "_all": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "storeId",
+          "orderId",
+          "stationId",
+          "ticketNumber",
+          "status",
+          "startedAt",
+          "readyAt",
+          "completedAt",
+          "cancelledAt",
+          "cancelReason",
+          "createdByUserId",
+          "createdAt",
+          "updatedAt",
+          "_all"
+        ]
+      },
+      "KitchenTicketMinAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "storeId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "orderId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "stationId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "ticketNumber": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenTicketStatus"
+              }
+            ]
+          },
+          "startedAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "readyAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "completedAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "cancelledAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "cancelReason": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "createdByUserId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "createdAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "updatedAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          }
+        }
+      },
+      "KitchenTicketMaxAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "storeId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "orderId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "stationId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "ticketNumber": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenTicketStatus"
+              }
+            ]
+          },
+          "startedAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "readyAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "completedAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "cancelledAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "cancelReason": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "createdByUserId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "createdAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "updatedAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          }
+        }
+      },
+      "KitchenTicketItemCountAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "storeId": {
+            "type": "integer"
+          },
+          "ticketId": {
+            "type": "integer"
+          },
+          "orderItemId": {
+            "type": "integer"
+          },
+          "productId": {
+            "type": "integer"
+          },
+          "productNameSnapshot": {
+            "type": "integer"
+          },
+          "quantity": {
+            "type": "integer"
+          },
+          "modifiers": {
+            "type": "integer"
+          },
+          "notes": {
+            "type": "integer"
+          },
+          "status": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "integer"
+          },
+          "updatedAt": {
+            "type": "integer"
+          },
+          "_all": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "storeId",
+          "ticketId",
+          "orderItemId",
+          "productId",
+          "productNameSnapshot",
+          "quantity",
+          "modifiers",
+          "notes",
+          "status",
+          "createdAt",
+          "updatedAt",
+          "_all"
+        ]
+      },
+      "KitchenTicketItemAvgAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "quantity": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          }
+        }
+      },
+      "KitchenTicketItemSumAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "quantity": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          }
+        }
+      },
+      "KitchenTicketItemMinAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "storeId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "ticketId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "orderItemId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "productId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "productNameSnapshot": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "quantity": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "notes": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenTicketStatus"
+              }
+            ]
+          },
+          "createdAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "updatedAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          }
+        }
+      },
+      "KitchenTicketItemMaxAggregateOutputType": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "storeId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "ticketId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "orderItemId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "productId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "productNameSnapshot": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "quantity": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "notes": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "status": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenTicketStatus"
+              }
+            ]
+          },
+          "createdAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "updatedAt": {
             "oneOf": [
               {
                 "type": "null"
@@ -15176,6 +17083,987 @@
         }
       },
       "CashMovementGroupByArgs": {
+        "type": "object",
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "orderBy": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "by": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "having": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "take": {
+            "type": "integer"
+          },
+          "skip": {
+            "type": "integer"
+          },
+          "_count": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              }
+            ]
+          },
+          "_min": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_max": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_sum": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_avg": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenStationCreateArgs": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "data": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenStationCreateManyArgs": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/_AnyObject"
+                }
+              }
+            ]
+          },
+          "skipDuplicates": {
+            "type": "boolean",
+            "description": "Do not insert records with unique fields or ID fields that already exist."
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenStationFindUniqueArgs": {
+        "type": "object",
+        "required": [
+          "where"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenStationFindFirstArgs": {
+        "type": "object",
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenStationFindManyArgs": {
+        "type": "object",
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "orderBy": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/_AnyObject"
+                }
+              }
+            ]
+          },
+          "cursor": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "take": {
+            "type": "integer"
+          },
+          "skip": {
+            "type": "integer"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenStationUpdateArgs": {
+        "type": "object",
+        "required": [
+          "where",
+          "data"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "data": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenStationUpdateManyArgs": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "data": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenStationUpsertArgs": {
+        "type": "object",
+        "required": [
+          "create",
+          "update",
+          "where"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "create": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "update": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenStationDeleteUniqueArgs": {
+        "type": "object",
+        "required": [
+          "where"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenStationDeleteManyArgs": {
+        "type": "object",
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenStationCountArgs": {
+        "type": "object",
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenStationAggregateArgs": {
+        "type": "object",
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "orderBy": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "cursor": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "take": {
+            "type": "integer"
+          },
+          "skip": {
+            "type": "integer"
+          },
+          "_count": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              }
+            ]
+          },
+          "_min": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_max": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_sum": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_avg": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenStationGroupByArgs": {
+        "type": "object",
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "orderBy": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "by": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "having": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "take": {
+            "type": "integer"
+          },
+          "skip": {
+            "type": "integer"
+          },
+          "_count": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              }
+            ]
+          },
+          "_min": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_max": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_sum": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_avg": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketCreateArgs": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "data": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketCreateManyArgs": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/_AnyObject"
+                }
+              }
+            ]
+          },
+          "skipDuplicates": {
+            "type": "boolean",
+            "description": "Do not insert records with unique fields or ID fields that already exist."
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketFindUniqueArgs": {
+        "type": "object",
+        "required": [
+          "where"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketFindFirstArgs": {
+        "type": "object",
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketFindManyArgs": {
+        "type": "object",
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "orderBy": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/_AnyObject"
+                }
+              }
+            ]
+          },
+          "cursor": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "take": {
+            "type": "integer"
+          },
+          "skip": {
+            "type": "integer"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketUpdateArgs": {
+        "type": "object",
+        "required": [
+          "where",
+          "data"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "data": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketUpdateManyArgs": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "data": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketUpsertArgs": {
+        "type": "object",
+        "required": [
+          "create",
+          "update",
+          "where"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "create": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "update": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketDeleteUniqueArgs": {
+        "type": "object",
+        "required": [
+          "where"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketDeleteManyArgs": {
+        "type": "object",
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketCountArgs": {
+        "type": "object",
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketAggregateArgs": {
+        "type": "object",
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "orderBy": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "cursor": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "take": {
+            "type": "integer"
+          },
+          "skip": {
+            "type": "integer"
+          },
+          "_count": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              }
+            ]
+          },
+          "_min": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_max": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketGroupByArgs": {
+        "type": "object",
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "orderBy": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "by": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "having": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "take": {
+            "type": "integer"
+          },
+          "skip": {
+            "type": "integer"
+          },
+          "_count": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              }
+            ]
+          },
+          "_min": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_max": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketItemCreateArgs": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "data": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketItemCreateManyArgs": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "data": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/_AnyObject"
+                }
+              }
+            ]
+          },
+          "skipDuplicates": {
+            "type": "boolean",
+            "description": "Do not insert records with unique fields or ID fields that already exist."
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketItemFindUniqueArgs": {
+        "type": "object",
+        "required": [
+          "where"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketItemFindFirstArgs": {
+        "type": "object",
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketItemFindManyArgs": {
+        "type": "object",
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "orderBy": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/_AnyObject"
+                }
+              }
+            ]
+          },
+          "cursor": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "take": {
+            "type": "integer"
+          },
+          "skip": {
+            "type": "integer"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketItemUpdateArgs": {
+        "type": "object",
+        "required": [
+          "where",
+          "data"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "data": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketItemUpdateManyArgs": {
+        "type": "object",
+        "required": [
+          "data"
+        ],
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "data": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketItemUpsertArgs": {
+        "type": "object",
+        "required": [
+          "create",
+          "update",
+          "where"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "create": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "update": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketItemDeleteUniqueArgs": {
+        "type": "object",
+        "required": [
+          "where"
+        ],
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "include": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketItemDeleteManyArgs": {
+        "type": "object",
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketItemCountArgs": {
+        "type": "object",
+        "properties": {
+          "select": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketItemAggregateArgs": {
+        "type": "object",
+        "properties": {
+          "where": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "orderBy": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "cursor": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "take": {
+            "type": "integer"
+          },
+          "skip": {
+            "type": "integer"
+          },
+          "_count": {
+            "oneOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "$ref": "#/components/schemas/_AnyObject"
+              }
+            ]
+          },
+          "_min": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_max": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_sum": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "_avg": {
+            "$ref": "#/components/schemas/_AnyObject"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/_Meta"
+          }
+        }
+      },
+      "KitchenTicketItemGroupByArgs": {
         "type": "object",
         "properties": {
           "where": {
@@ -32404,6 +35292,3315 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/CashMovementGroupByArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/kitchenStation/create": {
+      "post": {
+        "operationId": "createKitchenStation",
+        "description": "Create a new KitchenStation",
+        "tags": [
+          "kitchenStation"
+        ],
+        "security": [],
+        "responses": {
+          "201": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/KitchenStation",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KitchenStationCreateArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/kitchenStation/createMany": {
+      "post": {
+        "operationId": "createManyKitchenStation",
+        "description": "Create several KitchenStation",
+        "tags": [
+          "kitchenStation"
+        ],
+        "security": [],
+        "responses": {
+          "201": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BatchPayload",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KitchenStationCreateManyArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/kitchenStation/findUnique": {
+      "get": {
+        "operationId": "findUniqueKitchenStation",
+        "description": "Find one unique KitchenStation",
+        "tags": [
+          "kitchenStation"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/KitchenStation",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenStationFindUniqueArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/kitchenStation/findFirst": {
+      "get": {
+        "operationId": "findFirstKitchenStation",
+        "description": "Find the first KitchenStation matching the given condition",
+        "tags": [
+          "kitchenStation"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/KitchenStation",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenStationFindFirstArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/kitchenStation/findMany": {
+      "get": {
+        "operationId": "findManyKitchenStation",
+        "description": "Find a list of KitchenStation",
+        "tags": [
+          "kitchenStation"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/KitchenStation"
+                      },
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenStationFindManyArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/kitchenStation/update": {
+      "patch": {
+        "operationId": "updateKitchenStation",
+        "description": "Update a KitchenStation",
+        "tags": [
+          "kitchenStation"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/KitchenStation",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KitchenStationUpdateArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/kitchenStation/updateMany": {
+      "patch": {
+        "operationId": "updateManyKitchenStation",
+        "description": "Update KitchenStations matching the given condition",
+        "tags": [
+          "kitchenStation"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BatchPayload",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KitchenStationUpdateManyArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/kitchenStation/upsert": {
+      "post": {
+        "operationId": "upsertKitchenStation",
+        "description": "Upsert a KitchenStation",
+        "tags": [
+          "kitchenStation"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/KitchenStation",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KitchenStationUpsertArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/kitchenStation/delete": {
+      "delete": {
+        "operationId": "deleteKitchenStation",
+        "description": "Delete one unique KitchenStation",
+        "tags": [
+          "kitchenStation"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/KitchenStation",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenStationDeleteUniqueArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/kitchenStation/deleteMany": {
+      "delete": {
+        "operationId": "deleteManyKitchenStation",
+        "description": "Delete KitchenStations matching the given condition",
+        "tags": [
+          "kitchenStation"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BatchPayload",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenStationDeleteManyArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/kitchenStation/count": {
+      "get": {
+        "operationId": "countKitchenStation",
+        "description": "Find a list of KitchenStation",
+        "tags": [
+          "kitchenStation"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "oneOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "$ref": "#/components/schemas/KitchenStationCountAggregateOutputType"
+                        }
+                      ],
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenStationCountArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/kitchenStation/aggregate": {
+      "get": {
+        "operationId": "aggregateKitchenStation",
+        "description": "Aggregate KitchenStations",
+        "tags": [
+          "kitchenStation"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AggregateKitchenStation",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenStationAggregateArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/kitchenStation/groupBy": {
+      "get": {
+        "operationId": "groupByKitchenStation",
+        "description": "Group KitchenStations by fields",
+        "tags": [
+          "kitchenStation"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/KitchenStationGroupByOutputType"
+                      },
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenStationGroupByArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/kitchenTicket/create": {
+      "post": {
+        "operationId": "createKitchenTicket",
+        "description": "Create a new KitchenTicket",
+        "tags": [
+          "kitchenTicket"
+        ],
+        "security": [],
+        "responses": {
+          "201": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/KitchenTicket",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KitchenTicketCreateArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/kitchenTicket/createMany": {
+      "post": {
+        "operationId": "createManyKitchenTicket",
+        "description": "Create several KitchenTicket",
+        "tags": [
+          "kitchenTicket"
+        ],
+        "security": [],
+        "responses": {
+          "201": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BatchPayload",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KitchenTicketCreateManyArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/kitchenTicket/findUnique": {
+      "get": {
+        "operationId": "findUniqueKitchenTicket",
+        "description": "Find one unique KitchenTicket",
+        "tags": [
+          "kitchenTicket"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/KitchenTicket",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenTicketFindUniqueArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/kitchenTicket/findFirst": {
+      "get": {
+        "operationId": "findFirstKitchenTicket",
+        "description": "Find the first KitchenTicket matching the given condition",
+        "tags": [
+          "kitchenTicket"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/KitchenTicket",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenTicketFindFirstArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/kitchenTicket/findMany": {
+      "get": {
+        "operationId": "findManyKitchenTicket",
+        "description": "Find a list of KitchenTicket",
+        "tags": [
+          "kitchenTicket"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/KitchenTicket"
+                      },
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenTicketFindManyArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/kitchenTicket/update": {
+      "patch": {
+        "operationId": "updateKitchenTicket",
+        "description": "Update a KitchenTicket",
+        "tags": [
+          "kitchenTicket"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/KitchenTicket",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KitchenTicketUpdateArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/kitchenTicket/updateMany": {
+      "patch": {
+        "operationId": "updateManyKitchenTicket",
+        "description": "Update KitchenTickets matching the given condition",
+        "tags": [
+          "kitchenTicket"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BatchPayload",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KitchenTicketUpdateManyArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/kitchenTicket/upsert": {
+      "post": {
+        "operationId": "upsertKitchenTicket",
+        "description": "Upsert a KitchenTicket",
+        "tags": [
+          "kitchenTicket"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/KitchenTicket",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KitchenTicketUpsertArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/kitchenTicket/delete": {
+      "delete": {
+        "operationId": "deleteKitchenTicket",
+        "description": "Delete one unique KitchenTicket",
+        "tags": [
+          "kitchenTicket"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/KitchenTicket",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenTicketDeleteUniqueArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/kitchenTicket/deleteMany": {
+      "delete": {
+        "operationId": "deleteManyKitchenTicket",
+        "description": "Delete KitchenTickets matching the given condition",
+        "tags": [
+          "kitchenTicket"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BatchPayload",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenTicketDeleteManyArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/kitchenTicket/count": {
+      "get": {
+        "operationId": "countKitchenTicket",
+        "description": "Find a list of KitchenTicket",
+        "tags": [
+          "kitchenTicket"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "oneOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "$ref": "#/components/schemas/KitchenTicketCountAggregateOutputType"
+                        }
+                      ],
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenTicketCountArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/kitchenTicket/aggregate": {
+      "get": {
+        "operationId": "aggregateKitchenTicket",
+        "description": "Aggregate KitchenTickets",
+        "tags": [
+          "kitchenTicket"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AggregateKitchenTicket",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenTicketAggregateArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/kitchenTicket/groupBy": {
+      "get": {
+        "operationId": "groupByKitchenTicket",
+        "description": "Group KitchenTickets by fields",
+        "tags": [
+          "kitchenTicket"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/KitchenTicketGroupByOutputType"
+                      },
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenTicketGroupByArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/kitchenTicketItem/create": {
+      "post": {
+        "operationId": "createKitchenTicketItem",
+        "description": "Create a new KitchenTicketItem",
+        "tags": [
+          "kitchenTicketItem"
+        ],
+        "security": [],
+        "responses": {
+          "201": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/KitchenTicketItem",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KitchenTicketItemCreateArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/kitchenTicketItem/createMany": {
+      "post": {
+        "operationId": "createManyKitchenTicketItem",
+        "description": "Create several KitchenTicketItem",
+        "tags": [
+          "kitchenTicketItem"
+        ],
+        "security": [],
+        "responses": {
+          "201": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BatchPayload",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KitchenTicketItemCreateManyArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/kitchenTicketItem/findUnique": {
+      "get": {
+        "operationId": "findUniqueKitchenTicketItem",
+        "description": "Find one unique KitchenTicketItem",
+        "tags": [
+          "kitchenTicketItem"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/KitchenTicketItem",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenTicketItemFindUniqueArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/kitchenTicketItem/findFirst": {
+      "get": {
+        "operationId": "findFirstKitchenTicketItem",
+        "description": "Find the first KitchenTicketItem matching the given condition",
+        "tags": [
+          "kitchenTicketItem"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/KitchenTicketItem",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenTicketItemFindFirstArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/kitchenTicketItem/findMany": {
+      "get": {
+        "operationId": "findManyKitchenTicketItem",
+        "description": "Find a list of KitchenTicketItem",
+        "tags": [
+          "kitchenTicketItem"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/KitchenTicketItem"
+                      },
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenTicketItemFindManyArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/kitchenTicketItem/update": {
+      "patch": {
+        "operationId": "updateKitchenTicketItem",
+        "description": "Update a KitchenTicketItem",
+        "tags": [
+          "kitchenTicketItem"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/KitchenTicketItem",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KitchenTicketItemUpdateArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/kitchenTicketItem/updateMany": {
+      "patch": {
+        "operationId": "updateManyKitchenTicketItem",
+        "description": "Update KitchenTicketItems matching the given condition",
+        "tags": [
+          "kitchenTicketItem"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BatchPayload",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KitchenTicketItemUpdateManyArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/kitchenTicketItem/upsert": {
+      "post": {
+        "operationId": "upsertKitchenTicketItem",
+        "description": "Upsert a KitchenTicketItem",
+        "tags": [
+          "kitchenTicketItem"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/KitchenTicketItem",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/KitchenTicketItemUpsertArgs"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/kitchenTicketItem/delete": {
+      "delete": {
+        "operationId": "deleteKitchenTicketItem",
+        "description": "Delete one unique KitchenTicketItem",
+        "tags": [
+          "kitchenTicketItem"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/KitchenTicketItem",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenTicketItemDeleteUniqueArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/kitchenTicketItem/deleteMany": {
+      "delete": {
+        "operationId": "deleteManyKitchenTicketItem",
+        "description": "Delete KitchenTicketItems matching the given condition",
+        "tags": [
+          "kitchenTicketItem"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/BatchPayload",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenTicketItemDeleteManyArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/kitchenTicketItem/count": {
+      "get": {
+        "operationId": "countKitchenTicketItem",
+        "description": "Find a list of KitchenTicketItem",
+        "tags": [
+          "kitchenTicketItem"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "oneOf": [
+                        {
+                          "type": "integer"
+                        },
+                        {
+                          "$ref": "#/components/schemas/KitchenTicketItemCountAggregateOutputType"
+                        }
+                      ],
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenTicketItemCountArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/kitchenTicketItem/aggregate": {
+      "get": {
+        "operationId": "aggregateKitchenTicketItem",
+        "description": "Aggregate KitchenTicketItems",
+        "tags": [
+          "kitchenTicketItem"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/AggregateKitchenTicketItem",
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenTicketItemAggregateArgs"
+                }
+              }
+            }
+          },
+          {
+            "name": "meta",
+            "in": "query",
+            "description": "Superjson serialization metadata for parameter \"q\"",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        ]
+      }
+    },
+    "/kitchenTicketItem/groupBy": {
+      "get": {
+        "operationId": "groupByKitchenTicketItem",
+        "description": "Group KitchenTicketItems by fields",
+        "tags": [
+          "kitchenTicketItem"
+        ],
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Successful operation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "data"
+                  ],
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/KitchenTicketItemGroupByOutputType"
+                      },
+                      "description": "The Prisma response data serialized with superjson"
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/_Meta",
+                      "description": "The superjson serialization metadata for the \"data\" field"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Invalid request"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is forbidden"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/_Error"
+                }
+              }
+            },
+            "description": "Request is unprocessable due to validation errors"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Superjson-serialized Prisma query object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/KitchenTicketItemGroupByArgs"
                 }
               }
             }

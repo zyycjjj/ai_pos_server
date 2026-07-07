@@ -1,4 +1,4 @@
-import type { Order, OrderAuditLog, OrderItem, OrderPayment, Product, Refund, RefundItem } from '@prisma/client';
+import type { KitchenStation, KitchenTicket, Order, OrderAuditLog, OrderItem, OrderPayment, Product, Refund, RefundItem } from '@prisma/client';
 
 import { toMoneyNumber } from './money';
 
@@ -7,9 +7,11 @@ type OrderWithItems = Order & {
   payments?: OrderPayment[];
   refunds?: Array<Refund & { items?: RefundItem[] }>;
   auditLogs?: OrderAuditLog[];
+  kitchenTickets?: Array<KitchenTicket & { station?: KitchenStation }>;
 };
 
 export function presentOrder(order: OrderWithItems) {
+  const kitchenTickets = order.kitchenTickets ?? [];
   return {
     id: order.id,
     orderNumber: order.orderNumber,
@@ -67,6 +69,21 @@ export function presentOrder(order: OrderWithItems) {
       approvedById: log.approvedById,
       createdAt: log.createdAt.toISOString(),
     })),
+    kitchenTickets: kitchenTickets.map((ticket) => ({
+      id: ticket.id,
+      ticketNumber: ticket.ticketNumber,
+      status: ticket.status,
+      stationId: ticket.stationId,
+      stationName: ticket.station?.name ?? null,
+      startedAt: ticket.startedAt?.toISOString() ?? null,
+      readyAt: ticket.readyAt?.toISOString() ?? null,
+      completedAt: ticket.completedAt?.toISOString() ?? null,
+      cancelledAt: ticket.cancelledAt?.toISOString() ?? null,
+    })),
+    kitchenStatus:
+      kitchenTickets.length === 0
+        ? null
+        : summarizeKitchenStatus(kitchenTickets.map((ticket) => ticket.status)),
     items: order.items.map((item) => ({
       id: item.id,
       productId: item.productId,
@@ -79,4 +96,20 @@ export function presentOrder(order: OrderWithItems) {
       modifiers: item.modifiers ?? [],
     })),
   };
+}
+
+function summarizeKitchenStatus(statuses: string[]) {
+  if (statuses.every((status) => status === 'COMPLETED')) {
+    return 'COMPLETED';
+  }
+  if (statuses.some((status) => status === 'READY')) {
+    return 'READY';
+  }
+  if (statuses.some((status) => status === 'PREPARING')) {
+    return 'PREPARING';
+  }
+  if (statuses.every((status) => status === 'CANCELLED')) {
+    return 'CANCELLED';
+  }
+  return 'NEW';
 }

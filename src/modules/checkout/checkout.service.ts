@@ -6,6 +6,7 @@ import { multiplyMoney, toMoney, toMoneyNumber } from '@/common/utils/money';
 import { presentOrder } from '@/common/utils/order-presenter';
 import { StoreContextService } from '@/common/store-context.service';
 import { PrismaService } from '@/prisma/prisma.service';
+import { KitchenService } from '@/modules/kitchen/kitchen.service';
 import { ShiftsService } from '@/modules/shifts/shifts.service';
 
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -29,6 +30,7 @@ type OrderWithLifecycle = Prisma.OrderGetPayload<{
     payments: true;
     refunds: { include: { items: true } };
     auditLogs: true;
+    kitchenTickets: { include: { station: true } };
   };
 }>;
 
@@ -38,6 +40,7 @@ export class CheckoutService {
     private readonly prisma: PrismaService,
     private readonly storeContext?: StoreContextService,
     private readonly shiftsService?: ShiftsService,
+    private readonly kitchenService?: KitchenService,
   ) {}
 
   async listOrders(query: ListOrdersDto) {
@@ -47,7 +50,7 @@ export class CheckoutService {
         storeId,
         ...(query.status ? { status: query.status } : {}),
       },
-      include: { items: { include: { product: true } }, payments: true },
+      include: { items: { include: { product: true } }, payments: true, kitchenTickets: { include: { station: true } } },
       orderBy: { createdAt: 'desc' },
       take: query.take,
       skip: query.skip,
@@ -185,25 +188,33 @@ export class CheckoutService {
       throw new BadRequestException('Only open orders can be cancelled.');
     }
 
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const updatedOrder = await tx.order.update({
-        where: { id },
-        data: { status: OrderStatus.CANCELLED },
-        include: this.orderInclude(),
-      });
-      await tx.orderAuditLog.create({
-        data: {
+    const updated = await this.prisma.$transaction(
+      async (tx) => {
+        const updatedOrder = await tx.order.update({
+          where: { id },
+          data: { status: OrderStatus.CANCELLED },
+          include: this.orderInclude(),
+        });
+        await tx.orderAuditLog.create({
+          data: {
+            storeId: this.getStoreId(),
+            orderId: id,
+            action: OrderAuditAction.CANCELLED,
+            fromStatus: order.status,
+            toStatus: OrderStatus.CANCELLED,
+            reason: dto.reason,
+            operatorId: currentUser?.id,
+          },
+        });
+        await this.kitchenService?.cancelNewTicketsForOrder(tx, {
           storeId: this.getStoreId(),
           orderId: id,
-          action: OrderAuditAction.CANCELLED,
-          fromStatus: order.status,
-          toStatus: OrderStatus.CANCELLED,
           reason: dto.reason,
-          operatorId: currentUser?.id,
-        },
-      });
-      return updatedOrder;
-    });
+        });
+        return updatedOrder;
+      },
+      { maxWait: 30000, timeout: 60000 },
+    );
 
     return presentOrder(updated);
   }
@@ -221,26 +232,34 @@ export class CheckoutService {
       throw new BadRequestException('Refunded orders cannot be voided.');
     }
 
-    const updated = await this.prisma.$transaction(async (tx) => {
-      const updatedOrder = await tx.order.update({
-        where: { id },
-        data: { status: OrderStatus.VOIDED },
-        include: this.orderInclude(),
-      });
-      await tx.orderAuditLog.create({
-        data: {
+    const updated = await this.prisma.$transaction(
+      async (tx) => {
+        const updatedOrder = await tx.order.update({
+          where: { id },
+          data: { status: OrderStatus.VOIDED },
+          include: this.orderInclude(),
+        });
+        await tx.orderAuditLog.create({
+          data: {
+            storeId: this.getStoreId(),
+            orderId: id,
+            action: OrderAuditAction.VOIDED,
+            fromStatus: order.status,
+            toStatus: OrderStatus.VOIDED,
+            reason: dto.reason,
+            operatorId: currentUser?.id,
+            approvedById: dto.approvedById ?? currentUser?.id,
+          },
+        });
+        await this.kitchenService?.cancelUnfinishedTicketsForOrder(tx, {
           storeId: this.getStoreId(),
           orderId: id,
-          action: OrderAuditAction.VOIDED,
-          fromStatus: order.status,
-          toStatus: OrderStatus.VOIDED,
           reason: dto.reason,
-          operatorId: currentUser?.id,
-          approvedById: dto.approvedById ?? currentUser?.id,
-        },
-      });
-      return updatedOrder;
-    });
+        });
+        return updatedOrder;
+      },
+      { maxWait: 30000, timeout: 60000 },
+    );
 
     return presentOrder(updated);
   }
@@ -315,9 +334,16 @@ export class CheckoutService {
             createdByUserId: currentUser?.id,
           });
         }
+        if (updatedStatus === OrderStatus.REFUNDED) {
+          await this.kitchenService?.cancelNewTicketsForOrder(tx, {
+            storeId,
+            orderId: id,
+            reason: dto.reason,
+          });
+        }
         return createdRefund;
       },
-      { timeout: 15_000 },
+      { maxWait: 30000, timeout: 60000 },
     );
 
     return this.presentRefund(refund);
@@ -430,6 +456,7 @@ export class CheckoutService {
       payments: true,
       refunds: { include: { items: true } },
       auditLogs: true,
+      kitchenTickets: { include: { station: true } },
     } satisfies Prisma.OrderInclude;
   }
 
@@ -507,7 +534,7 @@ export class CheckoutService {
                 items: { create: input.items },
                 payments: { create: input.paymentResult.lines },
               },
-              include: { items: { include: { product: true } }, payments: true },
+              include: { items: { include: { product: true } }, payments: true, kitchenTickets: { include: { station: true } } },
             });
             if (input.shiftId && this.shiftsService) {
               await this.shiftsService.recordCashSaleMovements(tx, {
@@ -518,12 +545,23 @@ export class CheckoutService {
                 createdByUserId: input.createdByUserId,
               });
             }
+            if (this.kitchenService) {
+              await this.kitchenService.generateTicketsForOrder(tx, {
+                storeId: input.storeId,
+                orderId: order.id,
+                createdByUserId: input.createdByUserId,
+              });
+              return tx.order.findUniqueOrThrow({
+                where: { id: order.id },
+                include: { items: { include: { product: true } }, payments: true, kitchenTickets: { include: { station: true } } },
+              });
+            }
             return order;
           },
           {
             isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-            maxWait: 15000,
-            timeout: 20000,
+            maxWait: 30000,
+            timeout: 60000,
           },
         );
       } catch (error) {

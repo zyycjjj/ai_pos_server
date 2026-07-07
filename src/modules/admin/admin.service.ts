@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { AiDraftStatus, CatalogStatus, ModifierOptionStatus, OrderStatus, ProductAvailabilityStatus, StoreRole } from '@prisma/client';
+import { AiDraftStatus, CatalogStatus, KitchenStationStatus, ModifierOptionStatus, OrderStatus, ProductAvailabilityStatus, StoreRole } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { ClsService } from 'nestjs-cls';
 
@@ -166,11 +166,13 @@ export class AdminService {
         storeId,
         ...(query.search?.trim() ? { name: { contains: query.search.trim() } } : {}),
         ...(query.categoryId ? { categoryId: query.categoryId } : {}),
+        ...(query.kitchenStationId ? { kitchenStationId: query.kitchenStationId } : {}),
         ...(query.status ? { isActive: query.status === 'ACTIVE' } : {}),
         ...(query.availabilityStatus ? { availabilityStatus: query.availabilityStatus } : {}),
       },
       include: {
         categoryRef: true,
+        kitchenStation: true,
         modifierGroups: {
           select: { id: true },
         },
@@ -184,6 +186,9 @@ export class AdminService {
       description: product.description,
       category: product.categoryRef ? { id: product.categoryRef.id, name: product.categoryRef.name } : null,
       categoryName: product.categoryRef?.name ?? product.category,
+      kitchenStation: product.kitchenStation
+        ? { id: product.kitchenStation.id, name: product.kitchenStation.name, code: product.kitchenStation.code }
+        : null,
       price: toMoneyNumber(product.price),
       currency: product.currency,
       status: product.isActive ? 'ACTIVE' : 'INACTIVE',
@@ -201,6 +206,7 @@ export class AdminService {
   async createProduct(dto: UpsertProductDto) {
     const storeId = this.storeContext.getStoreId();
     const category = await this.resolveCategory(dto.categoryId);
+    const kitchenStation = await this.resolveKitchenStation(dto.kitchenStationId);
     const product = await this.prisma.product.create({
       data: {
         storeId,
@@ -208,6 +214,7 @@ export class AdminService {
         description: this.cleanOptional(dto.description),
         categoryId: category?.id,
         category: category?.name,
+        kitchenStationId: kitchenStation?.id,
         price: dto.price,
         currency: 'USD',
         isActive: dto.status !== 'INACTIVE',
@@ -221,6 +228,7 @@ export class AdminService {
   async updateProduct(id: string, dto: UpsertProductDto) {
     await this.findProduct(id);
     const category = await this.resolveCategory(dto.categoryId);
+    const kitchenStation = await this.resolveKitchenStation(dto.kitchenStationId);
     const product = await this.prisma.product.update({
       where: { id },
       data: {
@@ -228,6 +236,7 @@ export class AdminService {
         description: this.cleanOptional(dto.description),
         categoryId: category?.id,
         category: category?.name,
+        kitchenStationId: kitchenStation?.id,
         price: dto.price,
         isActive: dto.status !== 'INACTIVE',
         availabilityStatus: dto.availabilityStatus ?? ProductAvailabilityStatus.AVAILABLE,
@@ -261,13 +270,16 @@ export class AdminService {
     const storeId = this.storeContext.getStoreId();
     const categories = await this.prisma.category.findMany({
       where: { storeId },
-      include: { _count: { select: { products: true } } },
+      include: { defaultKitchenStation: true, _count: { select: { products: true } } },
       orderBy: [{ status: 'asc' }, { sortOrder: 'asc' }, { name: 'asc' }],
     });
     return categories.map((category) => ({
       id: category.id,
       name: category.name,
       status: category.status,
+      defaultKitchenStation: category.defaultKitchenStation
+        ? { id: category.defaultKitchenStation.id, name: category.defaultKitchenStation.name, code: category.defaultKitchenStation.code }
+        : null,
       productCount: category._count.products,
       sortOrder: category.sortOrder,
     }));
@@ -275,18 +287,23 @@ export class AdminService {
 
   async createCategory(dto: UpsertCategoryDto) {
     const storeId = this.storeContext.getStoreId();
+    const defaultKitchenStation = await this.resolveKitchenStation(dto.defaultKitchenStationId);
     const category = await this.prisma.category.create({
       data: {
         storeId,
         name: this.cleanName(dto.name, 'Category name is required.'),
+        defaultKitchenStationId: defaultKitchenStation?.id,
         sortOrder: dto.sortOrder ?? 0,
       },
-      include: { _count: { select: { products: true } } },
+      include: { defaultKitchenStation: true, _count: { select: { products: true } } },
     });
     return {
       id: category.id,
       name: category.name,
       status: category.status,
+      defaultKitchenStation: category.defaultKitchenStation
+        ? { id: category.defaultKitchenStation.id, name: category.defaultKitchenStation.name, code: category.defaultKitchenStation.code }
+        : null,
       productCount: category._count.products,
       sortOrder: category.sortOrder,
     };
@@ -294,13 +311,15 @@ export class AdminService {
 
   async updateCategory(id: string, dto: UpsertCategoryDto) {
     await this.findCategory(id);
+    const defaultKitchenStation = await this.resolveKitchenStation(dto.defaultKitchenStationId);
     const category = await this.prisma.category.update({
       where: { id },
       data: {
         name: this.cleanName(dto.name, 'Category name is required.'),
+        defaultKitchenStationId: defaultKitchenStation?.id,
         sortOrder: dto.sortOrder ?? 0,
       },
-      include: { _count: { select: { products: true } } },
+      include: { defaultKitchenStation: true, _count: { select: { products: true } } },
     });
     await this.prisma.product.updateMany({
       where: { storeId: this.storeContext.getStoreId(), categoryId: id },
@@ -310,6 +329,9 @@ export class AdminService {
       id: category.id,
       name: category.name,
       status: category.status,
+      defaultKitchenStation: category.defaultKitchenStation
+        ? { id: category.defaultKitchenStation.id, name: category.defaultKitchenStation.name, code: category.defaultKitchenStation.code }
+        : null,
       productCount: category._count.products,
       sortOrder: category.sortOrder,
     };
@@ -320,12 +342,15 @@ export class AdminService {
     const category = await this.prisma.category.update({
       where: { id },
       data: { status: dto.status },
-      include: { _count: { select: { products: true } } },
+      include: { defaultKitchenStation: true, _count: { select: { products: true } } },
     });
     return {
       id: category.id,
       name: category.name,
       status: category.status,
+      defaultKitchenStation: category.defaultKitchenStation
+        ? { id: category.defaultKitchenStation.id, name: category.defaultKitchenStation.name, code: category.defaultKitchenStation.code }
+        : null,
       productCount: category._count.products,
       sortOrder: category.sortOrder,
     };
@@ -487,6 +512,23 @@ export class AdminService {
     return this.findCategory(categoryId);
   }
 
+  private async resolveKitchenStation(kitchenStationId?: string) {
+    if (!kitchenStationId) {
+      return null;
+    }
+    const station = await this.prisma.kitchenStation.findFirst({
+      where: {
+        id: kitchenStationId,
+        storeId: this.storeContext.getStoreId(),
+        status: KitchenStationStatus.ACTIVE,
+      },
+    });
+    if (!station) {
+      throw new NotFoundException('Kitchen station not found.');
+    }
+    return station;
+  }
+
   private async findModifierGroup(id: string) {
     const group = await this.prisma.productModifierGroup.findFirst({
       where: { id, product: { storeId: this.storeContext.getStoreId() } },
@@ -511,6 +553,7 @@ export class AdminService {
   private productDetailInclude() {
     return {
       categoryRef: true,
+      kitchenStation: true,
       modifierGroups: {
         include: { options: { orderBy: { displayOrder: 'asc' as const } } },
         orderBy: { displayOrder: 'asc' as const },
@@ -525,6 +568,9 @@ export class AdminService {
       description: product.description,
       category: product.categoryRef ? { id: product.categoryRef.id, name: product.categoryRef.name } : null,
       categoryName: product.categoryRef?.name ?? product.category,
+      kitchenStation: product.kitchenStation
+        ? { id: product.kitchenStation.id, name: product.kitchenStation.name, code: product.kitchenStation.code }
+        : null,
       price: toMoneyNumber(product.price),
       currency: product.currency,
       status: product.isActive ? 'ACTIVE' : 'INACTIVE',

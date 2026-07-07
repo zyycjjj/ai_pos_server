@@ -11,6 +11,10 @@ export class ListAdminProductsDto {
   categoryId?: string;
 
   @IsOptional()
+  @IsString()
+  kitchenStationId?: string;
+
+  @IsOptional()
   @IsIn(['ACTIVE', 'INACTIVE'])
   status?: 'ACTIVE' | 'INACTIVE';
 
@@ -30,6 +34,10 @@ export class UpsertProductDto {
   @IsOptional()
   @IsString()
   categoryId?: string;
+
+  @IsOptional()
+  @IsString()
+  kitchenStationId?: string;
 
   @Type(() => Number)
   @IsNumber()
@@ -58,6 +66,10 @@ export class UpdateProductAvailabilityDto {
 export class UpsertCategoryDto {
   @IsString()
   name!: string;
+
+  @IsOptional()
+  @IsString()
+  defaultKitchenStationId?: string;
 
   @IsOptional()
   @Type(() => Number)

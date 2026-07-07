@@ -74,6 +74,19 @@ enum CashMovementReferenceType {
   MANUAL
 }
 
+enum KitchenStationStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum KitchenTicketStatus {
+  NEW
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
 enum AiDraftStatus {
   DRAFT
   CONFIRMED
@@ -125,6 +138,9 @@ model Store {
   auditLogs OrderAuditLog[]
   shifts    Shift[]
   cashMovements CashMovement[]
+  kitchenStations KitchenStation[]
+  kitchenTickets KitchenTicket[]
+  kitchenTicketItems KitchenTicketItem[]
   aiDrafts  AiDraft[]
   campaigns Campaign[]
   createdAt DateTime   @default(now())
@@ -148,6 +164,7 @@ model User {
   openedShifts Shift[] @relation("ShiftOpenedBy")
   closedShifts Shift[] @relation("ShiftClosedBy")
   cashMovements CashMovement[] @relation("CashMovementCreatedBy")
+  createdKitchenTickets KitchenTicket[] @relation("KitchenTicketCreatedBy")
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
@@ -176,12 +193,15 @@ model Category {
   name      String
   status    CatalogStatus @default(ACTIVE)
   sortOrder Int           @default(0)
+  defaultKitchenStationId String?
+  defaultKitchenStation KitchenStation? @relation("CategoryDefaultKitchenStation", fields: [defaultKitchenStationId], references: [id])
   products  Product[]
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 
   @@unique([storeId, name])
   @@index([storeId])
+  @@index([defaultKitchenStationId])
   @@allow("all", true)
 }
 
@@ -198,6 +218,8 @@ model Product {
   currency       String                 @default("USD")
   isActive       Boolean                @default(true)
   availabilityStatus ProductAvailabilityStatus @default(AVAILABLE)
+  kitchenStationId String?
+  kitchenStation KitchenStation? @relation("ProductKitchenStation", fields: [kitchenStationId], references: [id])
   modifierGroups ProductModifierGroup[]
   orderItems     OrderItem[]
   createdAt      DateTime               @default(now())
@@ -205,6 +227,7 @@ model Product {
 
   @@index([storeId])
   @@index([categoryId])
+  @@index([kitchenStationId])
   @@allow("all", true)
 }
 
@@ -265,6 +288,7 @@ model Order {
   payments        OrderPayment[]
   refunds         Refund[]
   auditLogs       OrderAuditLog[]
+  kitchenTickets  KitchenTicket[]
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -298,6 +322,7 @@ model OrderItem {
   lineTotal Decimal  @db.Decimal(10, 2)
   modifiers Json?
   refundItems RefundItem[]
+  kitchenTicketItems KitchenTicketItem[]
   createdAt DateTime @default(now())
 
   @@allow("all", true)
@@ -410,6 +435,77 @@ model CashMovement {
   @@unique([storeId, type, referenceType, referenceId])
   @@index([storeId])
   @@index([shiftId])
+  @@allow("all", true)
+}
+
+model KitchenStation {
+  id        String               @id @default(cuid())
+  storeId   String
+  store     Store                @relation(fields: [storeId], references: [id])
+  name      String
+  code      String
+  status    KitchenStationStatus @default(ACTIVE)
+  sortOrder Int                  @default(0)
+  isDefault Boolean              @default(false)
+  products  Product[]            @relation("ProductKitchenStation")
+  categories Category[]          @relation("CategoryDefaultKitchenStation")
+  tickets   KitchenTicket[]
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  @@unique([storeId, code])
+  @@index([storeId])
+  @@allow("all", true)
+}
+
+model KitchenTicket {
+  id              String              @id @default(cuid())
+  storeId         String
+  store           Store               @relation(fields: [storeId], references: [id])
+  orderId         String
+  order           Order               @relation(fields: [orderId], references: [id])
+  stationId       String
+  station         KitchenStation      @relation(fields: [stationId], references: [id])
+  ticketNumber    String              @unique
+  status          KitchenTicketStatus @default(NEW)
+  startedAt       DateTime?
+  readyAt         DateTime?
+  completedAt     DateTime?
+  cancelledAt     DateTime?
+  cancelReason    String?             @db.Text
+  createdByUserId String?
+  createdBy       User?               @relation("KitchenTicketCreatedBy", fields: [createdByUserId], references: [id])
+  items           KitchenTicketItem[]
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@unique([storeId, orderId, stationId])
+  @@index([storeId])
+  @@index([orderId])
+  @@index([stationId])
+  @@allow("all", true)
+}
+
+model KitchenTicketItem {
+  id                  String              @id @default(cuid())
+  storeId             String
+  store               Store               @relation(fields: [storeId], references: [id])
+  ticketId            String
+  ticket              KitchenTicket       @relation(fields: [ticketId], references: [id])
+  orderItemId         String
+  orderItem           OrderItem           @relation(fields: [orderItemId], references: [id])
+  productId           String
+  productNameSnapshot String
+  quantity            Int
+  modifiers           Json?
+  notes               String?             @db.Text
+  status              KitchenTicketStatus @default(NEW)
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  @@index([storeId])
+  @@index([ticketId])
+  @@index([orderItemId])
   @@allow("all", true)
 }
 

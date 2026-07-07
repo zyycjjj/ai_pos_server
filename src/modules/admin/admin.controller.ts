@@ -4,6 +4,7 @@ import { StoreRole } from '@prisma/client';
 
 import { Roles } from '@/modules/auth/roles.decorator';
 import { RolesGuard } from '@/modules/auth/roles.guard';
+import { KitchenService } from '@/modules/kitchen/kitchen.service';
 import { ShiftsService } from '@/modules/shifts/shifts.service';
 
 import { AdminService } from './admin.service';
@@ -21,6 +22,12 @@ import {
   UpsertModifierOptionDto,
   UpsertProductDto,
 } from './dto/catalog.dto';
+import {
+  CancelKitchenTicketDto,
+  ListKitchenTicketsDto,
+  UpdateKitchenStationStatusDto,
+  UpsertKitchenStationDto,
+} from '../kitchen/dto/kitchen.dto';
 
 @ApiTags('admin')
 @Controller('admin')
@@ -30,6 +37,7 @@ export class AdminController {
   constructor(
     private readonly adminService: AdminService,
     private readonly shiftsService: ShiftsService,
+    private readonly kitchenService: KitchenService,
   ) {}
 
   @Get('dashboard')
@@ -48,6 +56,72 @@ export class AdminController {
   @ApiOperation({ summary: 'Read shift detail for Admin management.' })
   getShift(@Param('id') id: string) {
     return this.shiftsService.getShift(id);
+  }
+
+  @Get('kitchen/stations')
+  @ApiOperation({ summary: 'List kitchen stations for Admin management.' })
+  listKitchenStations() {
+    return this.kitchenService.listStations();
+  }
+
+  @Post('kitchen/stations')
+  @ApiOperation({ summary: 'Create a kitchen station from Admin management.' })
+  createKitchenStation(@Body() dto: UpsertKitchenStationDto) {
+    return this.kitchenService.createStation(dto);
+  }
+
+  @Patch('kitchen/stations/:id')
+  @ApiOperation({ summary: 'Update a kitchen station from Admin management.' })
+  updateKitchenStation(@Param('id') id: string, @Body() dto: UpsertKitchenStationDto) {
+    return this.kitchenService.updateStation(id, dto);
+  }
+
+  @Patch('kitchen/stations/:id/status')
+  @ApiOperation({ summary: 'Enable or disable a kitchen station from Admin management.' })
+  updateKitchenStationStatus(@Param('id') id: string, @Body() dto: UpdateKitchenStationStatusDto) {
+    return this.kitchenService.updateStationStatus(id, dto.status);
+  }
+
+  @Patch('kitchen/stations/:id/default')
+  @ApiOperation({ summary: 'Set default kitchen station from Admin management.' })
+  setDefaultKitchenStation(@Param('id') id: string) {
+    return this.kitchenService.setDefaultStation(id);
+  }
+
+  @Get('kitchen/tickets')
+  @ApiOperation({ summary: 'List kitchen tickets for Admin management.' })
+  listKitchenTickets(@Query() query: ListKitchenTicketsDto) {
+    return this.kitchenService.listTickets(query);
+  }
+
+  @Get('kitchen/tickets/:id')
+  @ApiOperation({ summary: 'Read kitchen ticket detail for Admin management.' })
+  getKitchenTicket(@Param('id') id: string) {
+    return this.kitchenService.getTicket(id);
+  }
+
+  @Post('kitchen/tickets/:id/start')
+  @ApiOperation({ summary: 'Start a kitchen ticket from Admin management.' })
+  startKitchenTicket(@Param('id') id: string) {
+    return this.kitchenService.startTicket(id);
+  }
+
+  @Post('kitchen/tickets/:id/ready')
+  @ApiOperation({ summary: 'Mark a kitchen ticket ready from Admin management.' })
+  markKitchenTicketReady(@Param('id') id: string) {
+    return this.kitchenService.markReady(id);
+  }
+
+  @Post('kitchen/tickets/:id/complete')
+  @ApiOperation({ summary: 'Complete a kitchen ticket from Admin management.' })
+  completeKitchenTicket(@Param('id') id: string) {
+    return this.kitchenService.completeTicket(id);
+  }
+
+  @Post('kitchen/tickets/:id/cancel')
+  @ApiOperation({ summary: 'Cancel a kitchen ticket from Admin management.' })
+  cancelKitchenTicket(@Param('id') id: string, @Body() dto: CancelKitchenTicketDto) {
+    return this.kitchenService.cancelTicket(id, dto);
   }
 
   @Get('staff')
