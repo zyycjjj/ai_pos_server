@@ -7,6 +7,7 @@ import { presentOrder } from '@/common/utils/order-presenter';
 import { StoreContextService } from '@/common/store-context.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { KitchenService } from '@/modules/kitchen/kitchen.service';
+import { PrintService } from '@/modules/print/print.service';
 import { ShiftsService } from '@/modules/shifts/shifts.service';
 
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -41,6 +42,7 @@ export class CheckoutService {
     private readonly storeContext?: StoreContextService,
     private readonly shiftsService?: ShiftsService,
     private readonly kitchenService?: KitchenService,
+    private readonly printService?: PrintService,
   ) {}
 
   async listOrders(query: ListOrdersDto) {
@@ -61,6 +63,7 @@ export class CheckoutService {
 
   async getOrder(id: string) {
     const order = await this.findOrder(id);
+    await this.printService?.createAutoJobsForOrder(order.id).catch(() => undefined);
     return presentOrder(order);
   }
 
@@ -136,6 +139,8 @@ export class CheckoutService {
       shiftId: activeShift?.id,
       createdByUserId: currentUser?.id,
     });
+
+    await this.printService?.createAutoJobsForOrder(order.id).catch(() => undefined);
 
     return presentOrder(order);
   }

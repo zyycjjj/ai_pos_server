@@ -77,6 +77,58 @@ enum KitchenTicketStatus {
   CANCELLED
 }
 
+enum PrinterType {
+  RECEIPT
+  KITCHEN
+  MULTI_PURPOSE
+}
+
+enum PrinterConnectionType {
+  LAN
+  USB
+}
+
+enum PrinterStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PrinterRouteType {
+  STORE_DEFAULT
+  KITCHEN_STATION
+}
+
+enum PrintDocumentType {
+  CUSTOMER_RECEIPT
+  KITCHEN_TICKET
+  REFUND_RECEIPT
+  SHIFT_SUMMARY
+  TEST_PAGE
+}
+
+enum PrintJobReferenceType {
+  ORDER
+  KITCHEN_TICKET
+  REFUND
+  SHIFT
+  TEST
+}
+
+enum PrintJobStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum PrintJobReason {
+  AUTO
+  MANUAL
+  MANUAL_REPRINT
+  TEST
+}
+
 enum AiDraftStatus {
   DRAFT
   CONFIRMED
@@ -131,6 +183,9 @@ model Store {
   kitchenStations    KitchenStation[]
   kitchenTickets     KitchenTicket[]
   kitchenTicketItems KitchenTicketItem[]
+  printers           Printer[]
+  printerRoutes      PrinterRoute[]
+  printJobs          PrintJob[]
   aiDrafts           AiDraft[]
   campaigns          Campaign[]
   createdAt          DateTime            @default(now())
@@ -153,6 +208,7 @@ model User {
   closedShifts           Shift[]         @relation("ShiftClosedBy")
   cashMovements          CashMovement[]  @relation("CashMovementCreatedBy")
   createdKitchenTickets  KitchenTicket[] @relation("KitchenTicketCreatedBy")
+  requestedPrintJobs     PrintJob[]      @relation("PrintJobRequestedBy")
   createdAt              DateTime        @default(now())
   updatedAt              DateTime        @updatedAt()
 }
@@ -228,6 +284,8 @@ model ProductModifierGroup {
   options      ProductModifierOption[]
   createdAt    DateTime                @default(now())
   updatedAt    DateTime                @updatedAt()
+
+  @@index([productId])
 }
 
 model ProductModifierOption {
@@ -240,6 +298,8 @@ model ProductModifierOption {
   displayOrder Int                  @default(0)
   createdAt    DateTime             @default(now())
   updatedAt    DateTime             @updatedAt()
+
+  @@index([groupId])
 }
 
 model Order {
@@ -272,6 +332,8 @@ model Order {
   updatedAt       DateTime        @updatedAt()
 
   @@index([storeId])
+  @@index([storeId, paidAt])
+  @@index([storeId, status, paidAt])
 }
 
 model OrderPayment {
@@ -283,6 +345,8 @@ model OrderPayment {
   amountReceived Decimal?      @db.Decimal(10, 2)
   changeDue      Decimal?      @db.Decimal(10, 2)
   createdAt      DateTime      @default(now())
+
+  @@index([orderId, method])
 }
 
 model OrderItem {
@@ -300,6 +364,9 @@ model OrderItem {
   refundItems             RefundItem[]
   kitchenTicketItems      KitchenTicketItem[]
   createdAt               DateTime            @default(now())
+
+  @@index([orderId])
+  @@index([productId])
 }
 
 model Refund {
@@ -323,6 +390,7 @@ model Refund {
 
   @@unique([storeId, idempotencyKey])
   @@index([storeId])
+  @@index([storeId, createdAt])
   @@index([orderId])
 }
 
@@ -384,6 +452,7 @@ model Shift {
   updatedAt      DateTime       @updatedAt()
 
   @@index([storeId])
+  @@index([storeId, openedAt])
   @@index([storeId, userId, status])
 }
 
@@ -449,6 +518,7 @@ model KitchenTicket {
 
   @@unique([storeId, orderId, stationId])
   @@index([storeId])
+  @@index([storeId, createdAt])
   @@index([orderId])
   @@index([stationId])
 }
@@ -473,6 +543,85 @@ model KitchenTicketItem {
   @@index([storeId])
   @@index([ticketId])
   @@index([orderItemId])
+}
+
+model Printer {
+  id              String                @id() @default(cuid())
+  storeId         String
+  store           Store                 @relation(fields: [storeId], references: [id])
+  name            String
+  code            String
+  type            PrinterType
+  connectionType  PrinterConnectionType
+  status          PrinterStatus         @default(ACTIVE)
+  host            String?
+  port            Int?
+  usbVendorId     String?
+  usbProductId    String?
+  paperWidth      Int                   @default(80)
+  autoCut         Boolean               @default(true)
+  cashDrawerPulse Boolean               @default(false)
+  routes          PrinterRoute[]
+  printJobs       PrintJob[]
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt()
+
+  @@unique([storeId, code])
+  @@index([storeId])
+}
+
+model PrinterRoute {
+  id           String            @id() @default(cuid())
+  storeId      String
+  store        Store             @relation(fields: [storeId], references: [id])
+  printerId    String
+  printer      Printer           @relation(fields: [printerId], references: [id])
+  routeType    PrinterRouteType
+  targetId     String?
+  documentType PrintDocumentType
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt()
+
+  @@unique([storeId, routeType, targetId, documentType])
+  @@index([storeId])
+  @@index([printerId])
+}
+
+model PrintJob {
+  id                String                @id() @default(cuid())
+  storeId           String
+  store             Store                 @relation(fields: [storeId], references: [id])
+  printerId         String?
+  printer           Printer?              @relation(fields: [printerId], references: [id])
+  documentType      PrintDocumentType
+  referenceType     PrintJobReferenceType
+  referenceId       String
+  status            PrintJobStatus        @default(PENDING)
+  reason            PrintJobReason        @default(MANUAL)
+  payload           Json
+  renderedText      String?               @db.Text()
+  byteLength        Int?
+  retryCount        Int                   @default(0)
+  maxRetries        Int                   @default(3)
+  lastError         String?               @db.Text()
+  autoPrintKey      String?
+  sourceJobId       String?
+  sourceJob         PrintJob?             @relation("PrintJobReprints", fields: [sourceJobId], references: [id])
+  reprints          PrintJob[]            @relation("PrintJobReprints")
+  requestedByUserId String?
+  requestedBy       User?                 @relation("PrintJobRequestedBy", fields: [requestedByUserId], references: [id])
+  claimedByDeviceId String?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  nextRetryAt       DateTime?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt()
+
+  @@unique([storeId, documentType, referenceType, referenceId, autoPrintKey])
+  @@index([storeId])
+  @@index([printerId])
+  @@index([status])
+  @@index([referenceType, referenceId])
 }
 
 model AiDraft {

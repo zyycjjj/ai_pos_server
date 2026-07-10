@@ -6,6 +6,14 @@ import {
   KitchenTicketStatus,
   OrderStatus,
   PaymentMethod,
+  PrinterConnectionType,
+  PrinterRouteType,
+  PrinterStatus,
+  PrinterType,
+  PrintDocumentType,
+  PrintJobReason,
+  PrintJobReferenceType,
+  PrintJobStatus,
   PrismaClient,
   ShiftStatus,
 } from '@prisma/client';
@@ -417,6 +425,211 @@ async function main() {
         },
       });
     }
+  }
+
+  const frontPrinter = await prisma.printer.upsert({
+    where: { storeId_code: { storeId: store.id, code: 'FRONT' } },
+    update: {
+      name: 'Front Counter Printer',
+      type: PrinterType.RECEIPT,
+      connectionType: PrinterConnectionType.LAN,
+      status: PrinterStatus.ACTIVE,
+      host: '127.0.0.1',
+      port: 19100,
+      paperWidth: 80,
+      autoCut: true,
+    },
+    create: {
+      storeId: store.id,
+      name: 'Front Counter Printer',
+      code: 'FRONT',
+      type: PrinterType.RECEIPT,
+      connectionType: PrinterConnectionType.LAN,
+      status: PrinterStatus.ACTIVE,
+      host: '127.0.0.1',
+      port: 19100,
+      paperWidth: 80,
+      autoCut: true,
+    },
+  });
+  const barPrinter = await prisma.printer.upsert({
+    where: { storeId_code: { storeId: store.id, code: 'BAR-PRN' } },
+    update: {
+      name: 'Bar Printer',
+      type: PrinterType.KITCHEN,
+      connectionType: PrinterConnectionType.LAN,
+      status: PrinterStatus.ACTIVE,
+      host: '127.0.0.1',
+      port: 19101,
+      paperWidth: 80,
+    },
+    create: {
+      storeId: store.id,
+      name: 'Bar Printer',
+      code: 'BAR-PRN',
+      type: PrinterType.KITCHEN,
+      connectionType: PrinterConnectionType.LAN,
+      status: PrinterStatus.ACTIVE,
+      host: '127.0.0.1',
+      port: 19101,
+      paperWidth: 80,
+    },
+  });
+  const hotPrinter = await prisma.printer.upsert({
+    where: { storeId_code: { storeId: store.id, code: 'HOT-PRN' } },
+    update: {
+      name: 'Hot Kitchen Printer',
+      type: PrinterType.KITCHEN,
+      connectionType: PrinterConnectionType.LAN,
+      status: PrinterStatus.ACTIVE,
+      host: '127.0.0.1',
+      port: 19102,
+      paperWidth: 80,
+    },
+    create: {
+      storeId: store.id,
+      name: 'Hot Kitchen Printer',
+      code: 'HOT-PRN',
+      type: PrinterType.KITCHEN,
+      connectionType: PrinterConnectionType.LAN,
+      status: PrinterStatus.ACTIVE,
+      host: '127.0.0.1',
+      port: 19102,
+      paperWidth: 80,
+    },
+  });
+
+  await prisma.printerRoute.upsert({
+    where: {
+      storeId_routeType_targetId_documentType: {
+        storeId: store.id,
+        routeType: PrinterRouteType.STORE_DEFAULT,
+        targetId: 'STORE',
+        documentType: PrintDocumentType.CUSTOMER_RECEIPT,
+      },
+    },
+    update: { printerId: frontPrinter.id },
+    create: {
+      storeId: store.id,
+      printerId: frontPrinter.id,
+      routeType: PrinterRouteType.STORE_DEFAULT,
+      targetId: 'STORE',
+      documentType: PrintDocumentType.CUSTOMER_RECEIPT,
+    },
+  });
+  await prisma.printerRoute.upsert({
+    where: {
+      storeId_routeType_targetId_documentType: {
+        storeId: store.id,
+        routeType: PrinterRouteType.STORE_DEFAULT,
+        targetId: 'STORE',
+        documentType: PrintDocumentType.REFUND_RECEIPT,
+      },
+    },
+    update: { printerId: frontPrinter.id },
+    create: {
+      storeId: store.id,
+      printerId: frontPrinter.id,
+      routeType: PrinterRouteType.STORE_DEFAULT,
+      targetId: 'STORE',
+      documentType: PrintDocumentType.REFUND_RECEIPT,
+    },
+  });
+  await prisma.printerRoute.upsert({
+    where: {
+      storeId_routeType_targetId_documentType: {
+        storeId: store.id,
+        routeType: PrinterRouteType.STORE_DEFAULT,
+        targetId: 'STORE',
+        documentType: PrintDocumentType.SHIFT_SUMMARY,
+      },
+    },
+    update: { printerId: frontPrinter.id },
+    create: {
+      storeId: store.id,
+      printerId: frontPrinter.id,
+      routeType: PrinterRouteType.STORE_DEFAULT,
+      targetId: 'STORE',
+      documentType: PrintDocumentType.SHIFT_SUMMARY,
+    },
+  });
+  await prisma.printerRoute.upsert({
+    where: {
+      storeId_routeType_targetId_documentType: {
+        storeId: store.id,
+        routeType: PrinterRouteType.KITCHEN_STATION,
+        targetId: kitchenStations.bar.id,
+        documentType: PrintDocumentType.KITCHEN_TICKET,
+      },
+    },
+    update: { printerId: barPrinter.id },
+    create: {
+      storeId: store.id,
+      printerId: barPrinter.id,
+      routeType: PrinterRouteType.KITCHEN_STATION,
+      targetId: kitchenStations.bar.id,
+      documentType: PrintDocumentType.KITCHEN_TICKET,
+    },
+  });
+  await prisma.printerRoute.upsert({
+    where: {
+      storeId_routeType_targetId_documentType: {
+        storeId: store.id,
+        routeType: PrinterRouteType.KITCHEN_STATION,
+        targetId: kitchenStations.hot.id,
+        documentType: PrintDocumentType.KITCHEN_TICKET,
+      },
+    },
+    update: { printerId: hotPrinter.id },
+    create: {
+      storeId: store.id,
+      printerId: hotPrinter.id,
+      routeType: PrinterRouteType.KITCHEN_STATION,
+      targetId: kitchenStations.hot.id,
+      documentType: PrintDocumentType.KITCHEN_TICKET,
+    },
+  });
+
+  const printJobCount = await prisma.printJob.count({ where: { storeId: store.id } });
+  if (printJobCount === 0) {
+    await prisma.printJob.createMany({
+      data: [
+        {
+          storeId: store.id,
+          printerId: frontPrinter.id,
+          documentType: PrintDocumentType.TEST_PAGE,
+          referenceType: PrintJobReferenceType.TEST,
+          referenceId: frontPrinter.id,
+          status: PrintJobStatus.PENDING,
+          reason: PrintJobReason.TEST,
+          payload: { type: 'test', printer: { name: frontPrinter.name, code: frontPrinter.code } },
+        },
+        {
+          storeId: store.id,
+          printerId: barPrinter.id,
+          documentType: PrintDocumentType.KITCHEN_TICKET,
+          referenceType: PrintJobReferenceType.TEST,
+          referenceId: barPrinter.id,
+          status: PrintJobStatus.SUCCEEDED,
+          reason: PrintJobReason.AUTO,
+          payload: { type: 'seed-kitchen-ticket', station: { name: 'Bar' } },
+          completedAt: new Date(),
+        },
+        {
+          storeId: store.id,
+          printerId: hotPrinter.id,
+          documentType: PrintDocumentType.TEST_PAGE,
+          referenceType: PrintJobReferenceType.TEST,
+          referenceId: hotPrinter.id,
+          status: PrintJobStatus.FAILED,
+          reason: PrintJobReason.TEST,
+          payload: { type: 'failed-test', printer: { name: hotPrinter.name, code: hotPrinter.code } },
+          retryCount: 1,
+          lastError: 'Seed failed print job for retry demo',
+          completedAt: new Date(),
+        },
+      ],
+    });
   }
 
   const shiftCount = await prisma.shift.count({ where: { storeId: store.id } });
