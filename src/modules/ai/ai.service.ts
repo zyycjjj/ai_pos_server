@@ -11,6 +11,7 @@ import { ConfirmMenuDraftDto } from './dto/confirm-menu-draft.dto';
 import { CreateMenuDraftDto } from './dto/create-menu-draft.dto';
 import { GenerateMenuDto } from './dto/generate-menu.dto';
 import { ImportMenuDto } from './dto/import-menu.dto';
+import { parseStructuredJsonObject } from './parsers/structured-json.parser';
 
 type DraftMenuItem = {
   name: string;
@@ -64,7 +65,7 @@ export class AiService {
     try {
       const deepSeekResult = await this.deepSeekMenuService.generate(dto);
       if (deepSeekResult?.content) {
-        const parsed = this.parseJsonObject(deepSeekResult.content);
+        const parsed = parseStructuredJsonObject(deepSeekResult.content);
         const menu = this.normalizeGeneratedMenu(parsed, 'deepseek', deepSeekResult.model);
         const draft = await this.prisma.aiDraft.create({
           data: {
@@ -378,12 +379,6 @@ export class AiService {
     ]
       .filter(Boolean)
       .join(' | ');
-  }
-
-  private parseJsonObject(content: string) {
-    const trimmed = content.trim();
-    const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
-    return JSON.parse(fenced?.[1] ?? trimmed) as unknown;
   }
 
   private normalizeGeneratedMenu(value: unknown, provider: AiGeneratedMenu['provider'], model: string): AiGeneratedMenu {

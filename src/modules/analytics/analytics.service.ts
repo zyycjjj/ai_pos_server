@@ -1,9 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 
 import { StoreContextService } from '@/common/store-context.service';
 
 import { buildInsightSignals, compareSalesMetrics } from './domain/analytics-math';
-import { comparisonPeriod, resolvePeriod, resolvePresetDates } from './domain/analytics-time';
+import { AnalyticsPeriodError, comparisonPeriod, resolvePeriod, resolvePresetDates } from './domain/analytics-time';
 import type { AnalyticsCompare, AnalyticsPeriod } from './analytics.types';
 import type { AnalyticsQueryDto, ProductAnalyticsQueryDto } from './dto/analytics-query.dto';
 import { OperationsAnalyticsRepository } from './repositories/operations-analytics.repository';
@@ -162,10 +162,17 @@ export class AnalyticsService {
   private async context(query: AnalyticsQueryDto) {
     const storeId = this.storeContext.getStoreId();
     const store = await this.sales.getStore(storeId);
-    const presetDates = query.preset ? resolvePresetDates(query.preset, store.timezone) : undefined;
-    const period = resolvePeriod({ from: query.from ?? presetDates?.from, to: query.to ?? presetDates?.to, timezone: store.timezone });
-    const compare = (query.compare ?? 'previous_period') as AnalyticsCompare;
-    return { store, period, compare, previousPeriod: comparisonPeriod(period, compare) };
+    try {
+      const presetDates = query.preset ? resolvePresetDates(query.preset, store.timezone) : undefined;
+      const period = resolvePeriod({ from: query.from ?? presetDates?.from, to: query.to ?? presetDates?.to, timezone: store.timezone });
+      const compare = (query.compare ?? 'previous_period') as AnalyticsCompare;
+      return { store, period, compare, previousPeriod: comparisonPeriod(period, compare) };
+    } catch (error) {
+      if (error instanceof AnalyticsPeriodError) {
+        throw new BadRequestException(error.message);
+      }
+      throw error;
+    }
   }
 
   private presentPeriod(period: AnalyticsPeriod) {

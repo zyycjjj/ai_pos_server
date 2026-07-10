@@ -8,6 +8,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import type { AiCampaignSalesSummary, AiGeneratedCampaign } from './ai-campaign.types';
 import { DeepSeekMenuService } from './deepseek-menu.service';
 import { GenerateCampaignDto } from './dto/generate-campaign.dto';
+import { parseStructuredJsonObject } from './parsers/structured-json.parser';
 
 @Injectable()
 export class AiCampaignService {
@@ -35,7 +36,7 @@ export class AiCampaignService {
         },
       ]);
       if (deepSeekResult?.content) {
-        const parsed = this.parseJsonObject(deepSeekResult.content);
+        const parsed = parseStructuredJsonObject(deepSeekResult.content);
         const campaign = this.normalizeCampaign(parsed, salesSummary, 'deepseek', deepSeekResult.model);
         const draft = await this.prisma.aiDraft.create({
           data: {
@@ -163,12 +164,6 @@ export class AiCampaignService {
       `Extra notes: ${dto.notes?.trim() || 'simple, low-risk campaign'}`,
       `Sales summary: ${JSON.stringify(salesSummary)}`,
     ].join('\n');
-  }
-
-  private parseJsonObject(content: string) {
-    const trimmed = content.trim();
-    const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
-    return JSON.parse(fenced?.[1] ?? trimmed) as unknown;
   }
 
   private normalizeCampaign(

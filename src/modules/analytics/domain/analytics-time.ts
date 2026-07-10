@@ -1,8 +1,13 @@
-import { BadRequestException } from '@nestjs/common';
-
 import type { AnalyticsCompare, AnalyticsPeriod, DateBucket } from '../analytics.types';
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+export class AnalyticsPeriodError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AnalyticsPeriodError';
+  }
+}
 
 const partsInZone = (date: Date, timezone: string) => {
   const parts = new Intl.DateTimeFormat('en-CA', {
@@ -52,16 +57,16 @@ export const resolvePeriod = (input: { from?: string; to?: string; timezone: str
   try {
     new Intl.DateTimeFormat('en-US', { timeZone: input.timezone }).format();
   } catch {
-    throw new BadRequestException('Store timezone is invalid.');
+    throw new AnalyticsPeriodError('Store timezone is invalid.');
   }
   const today = formatBusinessDate(input.now ?? new Date(), input.timezone);
   const from = input.from ?? today;
   const to = input.to ?? from;
   if (!DATE_PATTERN.test(from) || !DATE_PATTERN.test(to) || from > to) {
-    throw new BadRequestException('Analytics dates must use YYYY-MM-DD and from must not exceed to.');
+    throw new AnalyticsPeriodError('Analytics dates must use YYYY-MM-DD and from must not exceed to.');
   }
   const days = daysBetweenInclusive(from, to);
-  if (days > 90) throw new BadRequestException('Analytics date range cannot exceed 90 days.');
+  if (days > 90) throw new AnalyticsPeriodError('Analytics date range cannot exceed 90 days.');
   return {
     from,
     to,
