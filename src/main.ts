@@ -9,7 +9,16 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
 
-  app.enableCors();
+  const corsOrigins = config
+    .get<string>('CORS_ORIGIN')
+    ?.split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  if (corsOrigins?.length) {
+    app.enableCors({ origin: corsOrigins });
+  } else if (config.get('NODE_ENV') !== 'production') {
+    app.enableCors();
+  }
   app.setGlobalPrefix('api');
   app.useGlobalPipes(
     new ValidationPipe({
@@ -28,7 +37,8 @@ async function bootstrap() {
   SwaggerModule.setup('docs', app, SwaggerModule.createDocument(app, swaggerConfig));
 
   const port = Number(config.get('PORT') ?? 4100);
-  await app.listen(port, '0.0.0.0');
+  const host = config.get<string>('HOST') ?? '0.0.0.0';
+  await app.listen(port, host);
 }
 
 void bootstrap();

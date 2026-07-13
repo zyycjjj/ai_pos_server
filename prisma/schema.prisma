@@ -165,6 +165,25 @@ enum ModifierOptionStatus {
   SOLD_OUT
 }
 
+enum AiConversationStatus {
+  ACTIVE
+  ARCHIVED
+}
+
+enum AiMessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum AiExecutionStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  FALLBACK
+}
+
 model Store {
   id                 String              @id() @default(cuid())
   name               String
@@ -188,29 +207,34 @@ model Store {
   printJobs          PrintJob[]
   aiDrafts           AiDraft[]
   campaigns          Campaign[]
+  aiConversations    AiConversation[]
+  aiMessages         AiMessage[]
+  aiExecutions       AiExecution[]
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt()
 }
 
 model User {
-  id                     String          @id() @default(cuid())
-  email                  String          @unique()
+  id                     String           @id() @default(cuid())
+  email                  String           @unique()
   name                   String?
   passwordHash           String
-  active                 Boolean         @default(true)
+  active                 Boolean          @default(true)
   stores                 StoreUser[]
-  operatedRefunds        Refund[]        @relation("RefundOperator")
-  approvedRefunds        Refund[]        @relation("RefundApprover")
-  operatedOrderAuditLogs OrderAuditLog[] @relation("OrderAuditOperator")
-  approvedOrderAuditLogs OrderAuditLog[] @relation("OrderAuditApprover")
-  shifts                 Shift[]         @relation("ShiftStaff")
-  openedShifts           Shift[]         @relation("ShiftOpenedBy")
-  closedShifts           Shift[]         @relation("ShiftClosedBy")
-  cashMovements          CashMovement[]  @relation("CashMovementCreatedBy")
-  createdKitchenTickets  KitchenTicket[] @relation("KitchenTicketCreatedBy")
-  requestedPrintJobs     PrintJob[]      @relation("PrintJobRequestedBy")
-  createdAt              DateTime        @default(now())
-  updatedAt              DateTime        @updatedAt()
+  operatedRefunds        Refund[]         @relation("RefundOperator")
+  approvedRefunds        Refund[]         @relation("RefundApprover")
+  operatedOrderAuditLogs OrderAuditLog[]  @relation("OrderAuditOperator")
+  approvedOrderAuditLogs OrderAuditLog[]  @relation("OrderAuditApprover")
+  shifts                 Shift[]          @relation("ShiftStaff")
+  openedShifts           Shift[]          @relation("ShiftOpenedBy")
+  closedShifts           Shift[]          @relation("ShiftClosedBy")
+  cashMovements          CashMovement[]   @relation("CashMovementCreatedBy")
+  createdKitchenTickets  KitchenTicket[]  @relation("KitchenTicketCreatedBy")
+  requestedPrintJobs     PrintJob[]       @relation("PrintJobRequestedBy")
+  aiConversations        AiConversation[]
+  aiMessages             AiMessage[]
+  createdAt              DateTime         @default(now())
+  updatedAt              DateTime         @updatedAt()
 }
 
 model StoreUser {
@@ -656,4 +680,71 @@ model Campaign {
   updatedAt      DateTime       @updatedAt()
 
   @@index([storeId])
+}
+
+model AiConversation {
+  id            String               @id() @default(cuid())
+  storeId       String
+  store         Store                @relation(fields: [storeId], references: [id])
+  userId        String
+  user          User                 @relation(fields: [userId], references: [id])
+  title         String
+  status        AiConversationStatus @default(ACTIVE)
+  lastMessageAt DateTime?
+  messages      AiMessage[]
+  executions    AiExecution[]
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt()
+
+  @@index([storeId])
+  @@index([userId])
+  @@index([storeId, userId, lastMessageAt])
+}
+
+model AiMessage {
+  id             String         @id() @default(cuid())
+  conversationId String
+  conversation   AiConversation @relation(fields: [conversationId], references: [id])
+  storeId        String
+  store          Store          @relation(fields: [storeId], references: [id])
+  userId         String?
+  user           User?          @relation(fields: [userId], references: [id])
+  role           AiMessageRole
+  content        String         @db.Text()
+  structuredData Json?
+  periodContext  Json?
+  executions     AiExecution[]
+  createdAt      DateTime       @default(now())
+
+  @@index([conversationId])
+  @@index([storeId])
+  @@index([userId])
+}
+
+model AiExecution {
+  id               String            @id() @default(cuid())
+  storeId          String
+  store            Store             @relation(fields: [storeId], references: [id])
+  conversationId   String
+  conversation     AiConversation    @relation(fields: [conversationId], references: [id])
+  messageId        String?
+  message          AiMessage?        @relation(fields: [messageId], references: [id])
+  provider         String
+  model            String
+  status           AiExecutionStatus @default(PENDING)
+  contextType      String
+  contextHash      String?
+  inputTokenCount  Int?
+  outputTokenCount Int?
+  latencyMs        Int?
+  errorCode        String?
+  errorMessage     String?           @db.Text()
+  startedAt        DateTime          @default(now())
+  completedAt      DateTime?
+  createdAt        DateTime          @default(now())
+
+  @@index([storeId])
+  @@index([conversationId])
+  @@index([messageId])
+  @@index([status])
 }
