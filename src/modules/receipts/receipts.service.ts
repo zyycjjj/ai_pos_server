@@ -14,7 +14,7 @@ export class ReceiptsService {
   async getReceiptForOrder(orderId: string) {
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, storeId: this.getStoreId() },
-      include: { store: true, items: { include: { product: true } }, payments: true, refunds: { include: { items: true } } },
+      include: { store: true, table: true, items: { include: { product: true } }, payments: true, refunds: { include: { items: true } } },
     });
     if (!order) {
       throw new NotFoundException('Order not found.');
@@ -30,6 +30,8 @@ export class ReceiptsService {
         orderNumber: order.orderNumber,
         pickupNumber: order.pickupNumber,
         orderType: order.orderType,
+        tableName: order.table?.name ?? null,
+        guestCount: order.guestCount,
         status: order.status,
         printStatus: order.printStatus,
         paymentMethod: order.paymentMethod,

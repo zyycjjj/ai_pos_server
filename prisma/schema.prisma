@@ -179,6 +179,14 @@ enum ModifierOptionStatus {
   SOLD_OUT
 }
 
+enum DiningTableStatus {
+  AVAILABLE
+  OCCUPIED
+  DIRTY
+  RESERVED
+  INACTIVE
+}
+
 enum AiConversationStatus {
   ACTIVE
   ARCHIVED
@@ -207,6 +215,8 @@ model Store {
   active             Boolean             @default(true)
   users              StoreUser[]
   categories         Category[]
+  diningAreas        DiningArea[]
+  diningTables       DiningTable[]
   products           Product[]
   orders             Order[]
   refunds            Refund[]
@@ -286,6 +296,42 @@ model Category {
   @@index([defaultKitchenStationId])
 }
 
+model DiningArea {
+  id        String        @id() @default(cuid())
+  storeId   String
+  store     Store         @relation(fields: [storeId], references: [id])
+  name      String
+  sortOrder Int           @default(0)
+  status    CatalogStatus @default(ACTIVE)
+  tables    DiningTable[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt()
+
+  @@unique([storeId, name])
+  @@index([storeId])
+}
+
+model DiningTable {
+  id             String            @id() @default(cuid())
+  storeId        String
+  store          Store             @relation(fields: [storeId], references: [id])
+  areaId         String
+  area           DiningArea        @relation(fields: [areaId], references: [id])
+  name           String
+  seats          Int               @default(2)
+  status         DiningTableStatus @default(AVAILABLE)
+  sortOrder      Int               @default(0)
+  currentOrderId String?           @unique()
+  currentOrder   Order?            @relation("CurrentTableOrder", fields: [currentOrderId], references: [id])
+  orders         Order[]           @relation("OrderDiningTable")
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt()
+
+  @@unique([storeId, name])
+  @@index([storeId, status])
+  @@index([areaId])
+}
+
 model Product {
   id                 String                    @id() @default(cuid())
   storeId            String?
@@ -350,6 +396,10 @@ model Order {
   orderNumber       String          @unique()
   pickupNumber      String?
   orderType         OrderType       @default(TAKEAWAY)
+  tableId           String?
+  table             DiningTable?    @relation("OrderDiningTable", fields: [tableId], references: [id])
+  currentForTable   DiningTable?    @relation("CurrentTableOrder")
+  guestCount        Int?
   status            OrderStatus     @default(OPEN)
   printStatus       PrintStatus     @default(NOT_PRINTED)
   paymentMethod     PaymentMethod?
@@ -371,6 +421,8 @@ model Order {
   printedAt         DateTime?
   heldAt            DateTime?
   resumedAt         DateTime?
+  openedAt          DateTime?
+  closedAt          DateTime?
   items             OrderItem[]
   payments          OrderPayment[]
   refunds           Refund[]
@@ -380,6 +432,7 @@ model Order {
   updatedAt         DateTime        @updatedAt()
 
   @@index([storeId])
+  @@index([tableId])
   @@index([storeId, paidAt])
   @@index([storeId, status, paidAt])
 }

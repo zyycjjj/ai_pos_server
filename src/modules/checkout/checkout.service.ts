@@ -518,6 +518,7 @@ export class CheckoutService {
 
   private orderInclude() {
     return {
+      table: true,
       items: { include: { product: true, refundItems: true } },
       payments: true,
       refunds: { include: { items: true } },
@@ -527,7 +528,7 @@ export class CheckoutService {
   }
 
   private orderListInclude() {
-    return { items: { include: { product: true } }, payments: true, refunds: { include: { items: true } }, kitchenTickets: { include: { station: true } } } satisfies Prisma.OrderInclude;
+    return { table: true, items: { include: { product: true } }, payments: true, refunds: { include: { items: true } }, kitchenTickets: { include: { station: true } } } satisfies Prisma.OrderInclude;
   }
 
   private async createPickupNumber(tx: Prisma.TransactionClient) {

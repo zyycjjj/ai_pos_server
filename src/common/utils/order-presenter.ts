@@ -1,4 +1,4 @@
-import type { KitchenStation, KitchenTicket, Order, OrderAuditLog, OrderItem, OrderPayment, Product, Refund, RefundItem } from '@prisma/client';
+import type { DiningTable, KitchenStation, KitchenTicket, Order, OrderAuditLog, OrderItem, OrderPayment, Product, Refund, RefundItem } from '@prisma/client';
 
 import { toMoneyNumber } from './money';
 
@@ -8,6 +8,7 @@ type OrderWithItems = Order & {
   refunds?: Array<Refund & { items?: RefundItem[] }>;
   auditLogs?: OrderAuditLog[];
   kitchenTickets?: Array<KitchenTicket & { station?: KitchenStation }>;
+  table?: DiningTable | null;
 };
 
 export function presentOrder(order: OrderWithItems) {
@@ -17,6 +18,9 @@ export function presentOrder(order: OrderWithItems) {
     orderNumber: order.orderNumber,
     pickupNumber: order.pickupNumber,
     orderType: 'orderType' in order ? order.orderType : 'TAKEAWAY',
+    tableId: order.tableId ?? null,
+    tableName: order.table?.name ?? null,
+    guestCount: order.guestCount ?? null,
     status: order.status,
     printStatus: order.printStatus,
     paymentMethod: order.paymentMethod,
@@ -38,6 +42,8 @@ export function presentOrder(order: OrderWithItems) {
     printedAt: order.printedAt?.toISOString() ?? null,
     heldAt: 'heldAt' in order ? order.heldAt?.toISOString() ?? null : null,
     resumedAt: 'resumedAt' in order ? order.resumedAt?.toISOString() ?? null : null,
+    openedAt: 'openedAt' in order ? order.openedAt?.toISOString() ?? null : null,
+    closedAt: 'closedAt' in order ? order.closedAt?.toISOString() ?? null : null,
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),
     refundedTotal: toMoneyNumber((order.refunds ?? []).reduce((sum, refund) => sum + toMoneyNumber(refund.amount), 0)),

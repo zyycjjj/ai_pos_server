@@ -37,6 +37,8 @@ export class EscPosRenderer {
       `Order: ${payload.order?.orderNumber ?? '-'}`,
       payload.order?.pickupNumber ? `Pickup: ${payload.order.pickupNumber}` : null,
       payload.order?.orderType ? `Type: ${payload.order.orderType}` : null,
+      payload.order?.tableName ? `Table: ${payload.order.tableName}` : null,
+      payload.order?.guestCount ? `Guests: ${payload.order.guestCount}` : null,
       `Date: ${formatDate(payload.order?.createdAt)}`,
       separator(),
       ...((payload.items ?? []) as any[]).flatMap((item) => [

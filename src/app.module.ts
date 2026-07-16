@@ -17,6 +17,7 @@ import { MetricsModule } from './modules/metrics/metrics.module';
 import { ProductsModule } from './modules/products/products.module';
 import { PrintModule } from './modules/print/print.module';
 import { ReceiptsModule } from './modules/receipts/receipts.module';
+import { TablesModule } from './modules/tables/tables.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { PrismaService } from './prisma/prisma.service';
 import { useZenFactory } from './zenstack/useZenFactory';
@@ -46,6 +47,7 @@ import { useZenFactory } from './zenstack/useZenFactory';
     CheckoutModule,
     PrintModule,
     ReceiptsModule,
+    TablesModule,
     MetricsModule,
     ProductsModule,
   ],
