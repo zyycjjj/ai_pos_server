@@ -9,6 +9,7 @@ import { AdminModule } from './modules/admin/admin.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AiModule } from './modules/ai/ai.module';
+import { BusinessDayModule } from './modules/business-day/business-day.module';
 import { CheckoutModule } from './modules/checkout/checkout.module';
 import { HealthModule } from './modules/health/health.module';
 import { KitchenModule } from './modules/kitchen/kitchen.module';
@@ -41,6 +42,7 @@ import { useZenFactory } from './zenstack/useZenFactory';
     AnalyticsModule,
     AiModule,
     KitchenModule,
+    BusinessDayModule,
     CheckoutModule,
     PrintModule,
     ReceiptsModule,

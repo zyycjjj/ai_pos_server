@@ -8,7 +8,7 @@ import { CurrentUser } from '@/modules/auth/current-user.decorator';
 import type { AuthRequestUser } from '@/modules/auth/auth.types';
 
 import { CheckoutService } from './checkout.service';
-import { CreateOrderDto } from './dto/create-order.dto';
+import { CreateOrderDto, HoldOrderDto, PayOrderDto } from './dto/create-order.dto';
 import { ListOrdersDto } from './dto/list-orders.dto';
 import { OrderReasonDto, RefundOrderDto, VoidOrderDto } from './dto/order-action.dto';
 
@@ -39,11 +39,32 @@ export class CheckoutController {
     return this.checkoutService.createOrder(dto, currentUser);
   }
 
+  @Post('orders/hold')
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
+  @ApiOperation({ summary: 'Create a held order for later resume and payment.' })
+  holdOrder(@Body() dto: HoldOrderDto, @CurrentUser() currentUser?: AuthRequestUser) {
+    return this.checkoutService.holdOrder(dto, currentUser);
+  }
+
+  @Patch('orders/:id/resume')
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
+  @ApiOperation({ summary: 'Resume a held order back to open status.' })
+  resumeOrder(@Param('id') id: string, @CurrentUser() currentUser?: AuthRequestUser) {
+    return this.checkoutService.resumeOrder(id, currentUser);
+  }
+
   @Patch('orders/:id/mark-paid')
   @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
   @ApiOperation({ summary: 'Mark an order paid for the MVP fake-payment flow.' })
   markPaid(@Param('id') id: string) {
     return this.checkoutService.markPaid(id);
+  }
+
+  @Post('orders/:id/pay')
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
+  @ApiOperation({ summary: 'Pay a resumed open order with validated payment lines.' })
+  payOrder(@Param('id') id: string, @Body() dto: PayOrderDto, @CurrentUser() currentUser?: AuthRequestUser) {
+    return this.checkoutService.payOrder(id, dto, currentUser);
   }
 
   @Patch('orders/:id/mark-printed')

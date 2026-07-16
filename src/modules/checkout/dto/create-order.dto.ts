@@ -3,16 +3,22 @@ import { Type } from 'class-transformer';
 import { ArrayMinSize, IsArray, IsIn, IsInt, IsNumber, IsOptional, IsString, MaxLength, Min, ValidateNested } from 'class-validator';
 
 export class CreateOrderAdjustmentDto {
-  @ApiProperty({ enum: ['discount', 'fixed_reduction', 'price_override'] })
+  @ApiProperty({ enum: ['discount', 'percentage_discount', 'fixed_reduction', 'price_override'] })
   @IsString()
-  @IsIn(['discount', 'fixed_reduction', 'price_override'])
-  type: 'discount' | 'fixed_reduction' | 'price_override';
+  @IsIn(['discount', 'percentage_discount', 'fixed_reduction', 'price_override'])
+  type: 'discount' | 'percentage_discount' | 'fixed_reduction' | 'price_override';
 
   @ApiProperty({ minimum: 0 })
   @Type(() => Number)
   @IsNumber()
   @Min(0)
   value: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  reason?: string;
 }
 
 export class CreateOrderPaymentLineDto {
@@ -67,6 +73,12 @@ export class CreateOrderItemDto {
 }
 
 export class CreateOrderDto {
+  @ApiPropertyOptional({ enum: ['DINE_IN', 'TAKEAWAY', 'PICKUP'], default: 'TAKEAWAY' })
+  @IsOptional()
+  @IsString()
+  @IsIn(['DINE_IN', 'TAKEAWAY', 'PICKUP'])
+  orderType?: 'DINE_IN' | 'TAKEAWAY' | 'PICKUP';
+
   @ApiProperty({ type: [CreateOrderItemDto] })
   @IsArray()
   @ArrayMinSize(1)
@@ -80,6 +92,27 @@ export class CreateOrderDto {
   @IsNumber()
   @Min(0)
   tax?: number;
+
+  @ApiPropertyOptional({ default: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  taxRate?: number;
+
+  @ApiPropertyOptional({ default: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  serviceChargeRate?: number;
+
+  @ApiPropertyOptional({ default: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  serviceCharge?: number;
 
   @ApiPropertyOptional({ default: 0 })
   @IsOptional()
@@ -106,4 +139,61 @@ export class CreateOrderDto {
   @IsString()
   @MaxLength(8)
   currency?: string;
+}
+
+export class HoldOrderDto {
+  @ApiProperty({ type: [CreateOrderItemDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreateOrderItemDto)
+  items: CreateOrderItemDto[];
+
+  @ApiPropertyOptional({ enum: ['DINE_IN', 'TAKEAWAY', 'PICKUP'], default: 'TAKEAWAY' })
+  @IsOptional()
+  @IsString()
+  @IsIn(['DINE_IN', 'TAKEAWAY', 'PICKUP'])
+  orderType?: 'DINE_IN' | 'TAKEAWAY' | 'PICKUP';
+
+  @ApiPropertyOptional({ type: CreateOrderAdjustmentDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateOrderAdjustmentDto)
+  adjustment?: CreateOrderAdjustmentDto;
+
+  @ApiPropertyOptional({ default: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  taxRate?: number;
+
+  @ApiPropertyOptional({ default: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  serviceChargeRate?: number;
+
+  @ApiPropertyOptional({ default: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  tip?: number;
+
+  @ApiPropertyOptional({ default: 'USD' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(8)
+  currency?: string;
+}
+
+export class PayOrderDto {
+  @ApiProperty({ type: [CreateOrderPaymentLineDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreateOrderPaymentLineDto)
+  payments: CreateOrderPaymentLineDto[];
 }

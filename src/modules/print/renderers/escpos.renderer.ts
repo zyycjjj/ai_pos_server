@@ -36,6 +36,7 @@ export class EscPosRenderer {
       separator(),
       `Order: ${payload.order?.orderNumber ?? '-'}`,
       payload.order?.pickupNumber ? `Pickup: ${payload.order.pickupNumber}` : null,
+      payload.order?.orderType ? `Type: ${payload.order.orderType}` : null,
       `Date: ${formatDate(payload.order?.createdAt)}`,
       separator(),
       ...((payload.items ?? []) as any[]).flatMap((item) => [
@@ -48,7 +49,9 @@ export class EscPosRenderer {
       moneyLine('Subtotal', payload.totals?.subtotal),
       moneyLine('Discount', payload.totals?.adjustment),
       moneyLine('Tax', payload.totals?.tax),
+      moneyLine('Service', payload.totals?.serviceCharge),
       moneyLine('Tip', payload.totals?.tip),
+      moneyLine('Total', payload.totals?.total),
       moneyLine('Refunds', payload.totals?.refundedTotal),
       moneyLine('Net Total', payload.totals?.netTotal ?? payload.totals?.total),
       separator(),

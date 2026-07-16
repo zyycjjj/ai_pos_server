@@ -14,11 +14,18 @@ generator client {
 
 enum OrderStatus {
   OPEN
+  HELD
   PAID
   CANCELLED
   VOIDED
   PARTIALLY_REFUNDED
   REFUNDED
+}
+
+enum OrderType {
+  DINE_IN
+  TAKEAWAY
+  PICKUP
 }
 
 enum PrintStatus {
@@ -42,6 +49,13 @@ enum OrderAuditAction {
   CANCELLED
   VOIDED
   REFUNDED
+  HELD
+  RESUMED
+}
+
+enum BusinessDayStatus {
+  OPEN
+  CLOSED
 }
 
 enum ShiftStatus {
@@ -198,6 +212,7 @@ model Store {
   refunds            Refund[]
   auditLogs          OrderAuditLog[]
   shifts             Shift[]
+  businessDays       BusinessDay[]
   cashMovements      CashMovement[]
   kitchenStations    KitchenStation[]
   kitchenTickets     KitchenTicket[]
@@ -228,6 +243,8 @@ model User {
   shifts                 Shift[]          @relation("ShiftStaff")
   openedShifts           Shift[]          @relation("ShiftOpenedBy")
   closedShifts           Shift[]          @relation("ShiftClosedBy")
+  openedBusinessDays     BusinessDay[]    @relation("BusinessDayOpenedBy")
+  closedBusinessDays     BusinessDay[]    @relation("BusinessDayClosedBy")
   cashMovements          CashMovement[]   @relation("CashMovementCreatedBy")
   createdKitchenTickets  KitchenTicket[]  @relation("KitchenTicketCreatedBy")
   requestedPrintJobs     PrintJob[]       @relation("PrintJobRequestedBy")
@@ -327,37 +344,68 @@ model ProductModifierOption {
 }
 
 model Order {
-  id              String          @id() @default(cuid())
-  storeId         String?
-  store           Store?          @relation(fields: [storeId], references: [id])
-  orderNumber     String          @unique()
-  pickupNumber    String?
-  status          OrderStatus     @default(OPEN)
-  printStatus     PrintStatus     @default(NOT_PRINTED)
-  paymentMethod   PaymentMethod?
-  currency        String          @default("USD")
-  subtotal        Decimal         @db.Decimal(10, 2)
-  adjustment      Decimal         @default(0) @db.Decimal(10, 2)
-  adjustmentType  String?
-  adjustmentValue Decimal?        @db.Decimal(10, 2)
-  tax             Decimal         @default(0) @db.Decimal(10, 2)
-  tip             Decimal         @default(0) @db.Decimal(10, 2)
-  total           Decimal         @db.Decimal(10, 2)
-  cashReceived    Decimal?        @db.Decimal(10, 2)
-  changeDue       Decimal?        @db.Decimal(10, 2)
-  paidAt          DateTime?
-  printedAt       DateTime?
-  items           OrderItem[]
-  payments        OrderPayment[]
-  refunds         Refund[]
-  auditLogs       OrderAuditLog[]
-  kitchenTickets  KitchenTicket[]
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt()
+  id                String          @id() @default(cuid())
+  storeId           String?
+  store             Store?          @relation(fields: [storeId], references: [id])
+  orderNumber       String          @unique()
+  pickupNumber      String?
+  orderType         OrderType       @default(TAKEAWAY)
+  status            OrderStatus     @default(OPEN)
+  printStatus       PrintStatus     @default(NOT_PRINTED)
+  paymentMethod     PaymentMethod?
+  currency          String          @default("USD")
+  subtotal          Decimal         @db.Decimal(10, 2)
+  adjustment        Decimal         @default(0) @db.Decimal(10, 2)
+  adjustmentType    String?
+  adjustmentValue   Decimal?        @db.Decimal(10, 2)
+  discountReason    String?         @db.Text()
+  taxRate           Decimal         @default(0) @db.Decimal(7, 4)
+  tax               Decimal         @default(0) @db.Decimal(10, 2)
+  serviceChargeRate Decimal         @default(0) @db.Decimal(7, 4)
+  serviceCharge     Decimal         @default(0) @db.Decimal(10, 2)
+  tip               Decimal         @default(0) @db.Decimal(10, 2)
+  total             Decimal         @db.Decimal(10, 2)
+  cashReceived      Decimal?        @db.Decimal(10, 2)
+  changeDue         Decimal?        @db.Decimal(10, 2)
+  paidAt            DateTime?
+  printedAt         DateTime?
+  heldAt            DateTime?
+  resumedAt         DateTime?
+  items             OrderItem[]
+  payments          OrderPayment[]
+  refunds           Refund[]
+  auditLogs         OrderAuditLog[]
+  kitchenTickets    KitchenTicket[]
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt()
 
   @@index([storeId])
   @@index([storeId, paidAt])
   @@index([storeId, status, paidAt])
+}
+
+model BusinessDay {
+  id             String            @id() @default(cuid())
+  storeId        String
+  store          Store             @relation(fields: [storeId], references: [id])
+  businessDate   DateTime
+  status         BusinessDayStatus @default(OPEN)
+  openedAt       DateTime          @default(now())
+  closedAt       DateTime?
+  openedByUserId String?
+  openedBy       User?             @relation("BusinessDayOpenedBy", fields: [openedByUserId], references: [id])
+  closedByUserId String?
+  closedBy       User?             @relation("BusinessDayClosedBy", fields: [closedByUserId], references: [id])
+  orderCount     Int               @default(0)
+  grossSales     Decimal           @default(0) @db.Decimal(10, 2)
+  refundTotal    Decimal           @default(0) @db.Decimal(10, 2)
+  netSales       Decimal           @default(0) @db.Decimal(10, 2)
+  notes          String?           @db.Text()
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt()
+
+  @@index([storeId, status])
+  @@index([storeId, businessDate])
 }
 
 model OrderPayment {

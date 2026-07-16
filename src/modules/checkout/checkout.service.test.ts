@@ -329,7 +329,7 @@ describe('CheckoutService', () => {
     const service = new CheckoutService(prisma as any);
     const order = await service.createOrder({
       items: [{ productId: 'tea', quantity: 2 }],
-      adjustment: { type: 'discount', value: 90 },
+      adjustment: { type: 'discount', value: 10 },
       tax: 0,
       payments: [{ method: 'CASH', amount: 18, amountReceived: 20 }],
       currency: 'USD',
@@ -338,7 +338,7 @@ describe('CheckoutService', () => {
     assert.equal(order.subtotal, 20);
     assert.equal(order.adjustment, 2);
     assert.equal(order.adjustmentType, 'discount');
-    assert.equal(order.adjustmentValue, 90);
+    assert.equal(order.adjustmentValue, 10);
     assert.equal(order.total, 18);
     assert.equal(order.cashReceived, 20);
     assert.equal(order.changeDue, 2);
@@ -411,14 +411,14 @@ describe('CheckoutService', () => {
       tax: 0,
       payments: [{ method: 'CARD', amount: 30 }],
       currency: 'USD',
-    });
+    }, { id: 'manager-1', email: 'manager@test.local', name: 'Manager', role: 'MANAGER', storeId: 'store-1' });
     const overrideOrder = await new CheckoutService(createPrisma() as any).createOrder({
       items: [{ productId: 'tea', quantity: 1 }],
       adjustment: { type: 'price_override', value: 35 },
       tax: 0,
       payments: [{ method: 'MANUAL', amount: 35 }],
       currency: 'USD',
-    });
+    }, { id: 'manager-1', email: 'manager@test.local', name: 'Manager', role: 'MANAGER', storeId: 'store-1' });
 
     assert.equal(fixedReductionOrder.adjustment, 20);
     assert.equal(fixedReductionOrder.total, 30);

@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { ModifierOptionStatus, OrderAuditAction, OrderStatus, PaymentMethod, PrintStatus, Prisma, ProductAvailabilityStatus, RefundStatus, StoreRole } from '@prisma/client';
+import { ModifierOptionStatus, OrderAuditAction, OrderStatus, OrderType, PaymentMethod, PrintStatus, Prisma, ProductAvailabilityStatus, RefundStatus, StoreRole } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
 import { multiplyMoney, toMoney, toMoneyNumber } from '@/common/utils/money';
@@ -10,7 +10,7 @@ import { KitchenService } from '@/modules/kitchen/kitchen.service';
 import { PrintService } from '@/modules/print/print.service';
 import { ShiftsService } from '@/modules/shifts/shifts.service';
 
-import { CreateOrderDto } from './dto/create-order.dto';
+import { CreateOrderDto, HoldOrderDto, PayOrderDto } from './dto/create-order.dto';
 import { ListOrdersDto } from './dto/list-orders.dto';
 import { OrderReasonDto, RefundOrderDto, VoidOrderDto } from './dto/order-action.dto';
 import type { AuthRequestUser } from '../auth/auth.types';
@@ -52,7 +52,7 @@ export class CheckoutService {
         storeId,
         ...(query.status ? { status: query.status } : {}),
       },
-      include: { items: { include: { product: true } }, payments: true, kitchenTickets: { include: { station: true } } },
+      include: this.orderListInclude(),
       orderBy: { createdAt: 'desc' },
       take: query.take,
       skip: query.skip,
@@ -70,71 +70,13 @@ export class CheckoutService {
   async createOrder(dto: CreateOrderDto, currentUser?: AuthRequestUser) {
     const storeId = this.getStoreId();
     const activeShift = await this.resolveCheckoutShift(currentUser);
-    const productIds = [...new Set(dto.items.map((item) => item.productId))];
-    const products = await this.prisma.product.findMany({
-      where: { id: { in: productIds }, storeId, isActive: true, availabilityStatus: ProductAvailabilityStatus.AVAILABLE },
-      include: {
-        modifierGroups: {
-          where: { status: 'ACTIVE' },
-          include: {
-            options: {
-              where: { status: { not: ModifierOptionStatus.INACTIVE } },
-              orderBy: { displayOrder: 'asc' },
-            },
-          },
-          orderBy: { displayOrder: 'asc' },
-        },
-      },
-    });
-    const productById = new Map(products.map((product) => [product.id, product]));
-
-    const missingIds = productIds.filter((id) => !productById.has(id));
-    if (missingIds.length > 0) {
-      throw new BadRequestException(`Product not found, inactive, or sold out: ${missingIds.join(', ')}`);
-    }
-
-    const currency = dto.currency ?? products[0]?.currency ?? 'USD';
-    const items = dto.items.map((item) => {
-      const product = productById.get(item.productId);
-      if (!product) {
-        throw new BadRequestException(`Product not found, inactive, or sold out: ${item.productId}`);
-      }
-
-      const selectedModifiers = this.resolveSelectedModifiers(product, item.modifiers ?? []);
-      const unitPrice = selectedModifiers
-        .reduce((price, modifier) => price.plus(modifier.priceDelta), product.price)
-        .toDecimalPlaces(2);
-      const lineTotal = multiplyMoney(unitPrice, item.quantity);
-      return {
-        productId: product.id,
-        productNameSnapshot: product.name,
-        productCategorySnapshot: product.category,
-        quantity: item.quantity,
-        unitPrice,
-        lineTotal,
-        modifiers: selectedModifiers,
-      };
-    });
-
-    const subtotal = items.reduce((sum, item) => sum.plus(item.lineTotal), new Decimal(0)).toDecimalPlaces(2);
-    const adjustmentResult = this.calculateAdjustment(subtotal, dto.adjustment);
-    const adjustedSubtotal = subtotal.minus(adjustmentResult.amount);
-    const tax = toMoney(dto.tax ?? 0);
-    const tip = toMoney(dto.tip ?? 0);
-    const total = adjustedSubtotal.plus(tax).plus(tip).toDecimalPlaces(2);
+    const orderDraft = await this.buildOrderDraft(dto, currentUser);
+    const total = orderDraft.total;
     const paymentResult = this.resolvePayments(dto.payments, total);
 
     const order = await this.createPaidOrderWithRetry({
-      currency,
-      subtotal,
-      adjustment: adjustmentResult.amount,
-      adjustmentType: dto.adjustment?.type,
-      adjustmentValue: dto.adjustment ? toMoney(dto.adjustment.value) : undefined,
-      tax,
-      tip,
-      total,
+      ...orderDraft,
       paymentResult,
-      items,
       storeId,
       shiftId: activeShift?.id,
       createdByUserId: currentUser?.id,
@@ -143,6 +85,81 @@ export class CheckoutService {
     await this.printService?.createAutoJobsForOrder(order.id).catch(() => undefined);
 
     return presentOrder(order);
+  }
+
+  async holdOrder(dto: HoldOrderDto, currentUser?: AuthRequestUser) {
+    const storeId = this.getStoreId();
+    const orderDraft = await this.buildOrderDraft(dto, currentUser);
+    const order = await this.prisma.$transaction(
+      async (tx) => {
+        const pickupNumber = await this.createPickupNumber(tx);
+        const created = await tx.order.create({
+          data: {
+            orderNumber: this.createOrderNumber(),
+            storeId,
+            pickupNumber,
+            orderType: orderDraft.orderType,
+            status: OrderStatus.HELD,
+            currency: orderDraft.currency,
+            subtotal: orderDraft.subtotal,
+            adjustment: orderDraft.adjustment,
+            adjustmentType: orderDraft.adjustmentType,
+            adjustmentValue: orderDraft.adjustmentValue,
+            discountReason: orderDraft.discountReason,
+            taxRate: orderDraft.taxRate,
+            tax: orderDraft.tax,
+            serviceChargeRate: orderDraft.serviceChargeRate,
+            serviceCharge: orderDraft.serviceCharge,
+            tip: orderDraft.tip,
+            total: orderDraft.total,
+            heldAt: new Date(),
+            items: { create: orderDraft.items },
+          },
+          include: this.orderListInclude(),
+        });
+        await tx.orderAuditLog.create({
+          data: {
+            storeId,
+            orderId: created.id,
+            action: OrderAuditAction.HELD,
+            fromStatus: OrderStatus.OPEN,
+            toStatus: OrderStatus.HELD,
+            reason: 'Order held',
+            operatorId: currentUser?.id,
+          },
+        });
+        return created;
+      },
+      { maxWait: 30000, timeout: 60000 },
+    );
+    return presentOrder(order);
+  }
+
+  async resumeOrder(id: string, currentUser?: AuthRequestUser) {
+    const order = await this.findOrder(id);
+    if (order.status !== OrderStatus.HELD) {
+      throw new BadRequestException('Only held orders can be resumed.');
+    }
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const resumed = await tx.order.update({
+        where: { id },
+        data: { status: OrderStatus.OPEN, resumedAt: new Date() },
+        include: this.orderInclude(),
+      });
+      await tx.orderAuditLog.create({
+        data: {
+          storeId: this.getStoreId(),
+          orderId: id,
+          action: OrderAuditAction.RESUMED,
+          fromStatus: OrderStatus.HELD,
+          toStatus: OrderStatus.OPEN,
+          reason: 'Order resumed',
+          operatorId: currentUser?.id,
+        },
+      });
+      return resumed;
+    });
+    return presentOrder(updated);
   }
 
   async markPaid(id: string) {
@@ -163,6 +180,47 @@ export class CheckoutService {
       include: { items: { include: { product: true } }, payments: true },
     });
 
+    return presentOrder(updated);
+  }
+
+  async payOrder(id: string, dto: PayOrderDto, currentUser?: AuthRequestUser) {
+    const order = await this.findOrder(id);
+    if (order.status === OrderStatus.PAID) {
+      return presentOrder(order);
+    }
+    if (order.status !== OrderStatus.OPEN) {
+      throw new BadRequestException('Only open orders can be paid.');
+    }
+    const activeShift = await this.resolveCheckoutShift(currentUser);
+    const paymentResult = this.resolvePayments(dto.payments, order.total);
+    const updated = await this.prisma.$transaction(
+      async (tx) => {
+        const paid = await tx.order.update({
+          where: { id },
+          data: {
+            status: OrderStatus.PAID,
+            paymentMethod: paymentResult.summaryMethod,
+            cashReceived: paymentResult.cashReceived,
+            changeDue: paymentResult.changeDue,
+            paidAt: new Date(),
+            payments: { create: paymentResult.lines },
+          },
+          include: this.orderListInclude(),
+        });
+        if (activeShift?.id && this.shiftsService) {
+          await this.shiftsService.recordCashSaleMovements(tx, {
+            storeId: this.getStoreId(),
+            shiftId: activeShift.id,
+            orderId: id,
+            payments: paid.payments,
+            createdByUserId: currentUser?.id,
+          });
+        }
+        return paid;
+      },
+      { maxWait: 30000, timeout: 60000 },
+    );
+    await this.printService?.createAutoJobsForOrder(updated.id).catch(() => undefined);
     return presentOrder(updated);
   }
 
@@ -281,6 +339,9 @@ export class CheckoutService {
     }
 
     const order = await this.findOrder(id);
+    if (order.status === OrderStatus.HELD) {
+      throw new BadRequestException('Held orders cannot be refunded.');
+    }
     if (order.status !== OrderStatus.PAID && order.status !== OrderStatus.PARTIALLY_REFUNDED) {
       throw new BadRequestException('Only paid orders can be refunded.');
     }
@@ -465,6 +526,10 @@ export class CheckoutService {
     } satisfies Prisma.OrderInclude;
   }
 
+  private orderListInclude() {
+    return { items: { include: { product: true } }, payments: true, refunds: { include: { items: true } }, kitchenTickets: { include: { station: true } } } satisfies Prisma.OrderInclude;
+  }
+
   private async createPickupNumber(tx: Prisma.TransactionClient) {
     const storeId = this.getStoreId();
     const now = new Date();
@@ -487,11 +552,16 @@ export class CheckoutService {
   private async createPaidOrderWithRetry(input: {
     storeId: string;
     currency: string;
+    orderType: OrderType;
     subtotal: Decimal;
     adjustment: Decimal;
     adjustmentType?: string;
     adjustmentValue?: Decimal;
+    discountReason?: string;
+    taxRate: Decimal;
     tax: Decimal;
+    serviceChargeRate: Decimal;
+    serviceCharge: Decimal;
     tip: Decimal;
     total: Decimal;
     paymentResult: ReturnType<CheckoutService['resolvePayments']>;
@@ -523,6 +593,7 @@ export class CheckoutService {
                 orderNumber: this.createOrderNumber(),
                 storeId: input.storeId,
                 pickupNumber,
+                orderType: input.orderType,
                 status: OrderStatus.PAID,
                 paymentMethod: input.paymentResult.summaryMethod,
                 currency: input.currency,
@@ -530,7 +601,11 @@ export class CheckoutService {
                 adjustment: input.adjustment,
                 adjustmentType: input.adjustmentType,
                 adjustmentValue: input.adjustmentValue,
+                discountReason: input.discountReason,
+                taxRate: input.taxRate,
                 tax: input.tax,
+                serviceChargeRate: input.serviceChargeRate,
+                serviceCharge: input.serviceCharge,
                 tip: input.tip,
                 total: input.total,
                 cashReceived: input.paymentResult.cashReceived,
@@ -539,7 +614,7 @@ export class CheckoutService {
                 items: { create: input.items },
                 payments: { create: input.paymentResult.lines },
               },
-              include: { items: { include: { product: true } }, payments: true, kitchenTickets: { include: { station: true } } },
+              include: this.orderListInclude(),
             });
             if (input.shiftId && this.shiftsService) {
               await this.shiftsService.recordCashSaleMovements(tx, {
@@ -558,7 +633,7 @@ export class CheckoutService {
               });
               return tx.order.findUniqueOrThrow({
                 where: { id: order.id },
-                include: { items: { include: { product: true } }, payments: true, kitchenTickets: { include: { station: true } } },
+                include: this.orderListInclude(),
               });
             }
             return order;
@@ -589,10 +664,11 @@ export class CheckoutService {
     let amount: Decimal;
     switch (adjustment.type) {
       case 'discount':
+      case 'percentage_discount':
         if (value.lessThan(0) || value.greaterThan(100)) {
           throw new BadRequestException('Discount must be between 0 and 100.');
         }
-        amount = subtotal.mul(new Decimal(100).minus(value)).div(100).toDecimalPlaces(2);
+        amount = subtotal.mul(value).div(100).toDecimalPlaces(2);
         break;
       case 'fixed_reduction':
         amount = value.toDecimalPlaces(2);
@@ -612,6 +688,84 @@ export class CheckoutService {
     }
 
     return { amount: amount.toDecimalPlaces(2) };
+  }
+
+  private async buildOrderDraft(dto: Pick<CreateOrderDto, 'items' | 'orderType' | 'currency' | 'adjustment' | 'tax' | 'taxRate' | 'serviceCharge' | 'serviceChargeRate' | 'tip'>, currentUser?: AuthRequestUser) {
+    const storeId = this.getStoreId();
+    const productIds = [...new Set(dto.items.map((item) => item.productId))];
+    const products = await this.prisma.product.findMany({
+      where: { id: { in: productIds }, storeId, isActive: true, availabilityStatus: ProductAvailabilityStatus.AVAILABLE },
+      include: {
+        modifierGroups: {
+          where: { status: 'ACTIVE' },
+          include: { options: { where: { status: { not: ModifierOptionStatus.INACTIVE } }, orderBy: { displayOrder: 'asc' } } },
+          orderBy: { displayOrder: 'asc' },
+        },
+      },
+    });
+    const productById = new Map(products.map((product) => [product.id, product]));
+    const missingIds = productIds.filter((id) => !productById.has(id));
+    if (missingIds.length > 0) {
+      throw new BadRequestException(`Product not found, inactive, or sold out: ${missingIds.join(', ')}`);
+    }
+
+    const items = dto.items.map((item) => {
+      const product = productById.get(item.productId);
+      if (!product) {
+        throw new BadRequestException(`Product not found, inactive, or sold out: ${item.productId}`);
+      }
+      const selectedModifiers = this.resolveSelectedModifiers(product, item.modifiers ?? []);
+      const unitPrice = selectedModifiers.reduce((price, modifier) => price.plus(modifier.priceDelta), product.price).toDecimalPlaces(2);
+      return {
+        productId: product.id,
+        productNameSnapshot: product.name,
+        productCategorySnapshot: product.category,
+        quantity: item.quantity,
+        unitPrice,
+        lineTotal: multiplyMoney(unitPrice, item.quantity),
+        modifiers: selectedModifiers,
+      };
+    });
+
+    const subtotal = items.reduce((sum, item) => sum.plus(item.lineTotal), new Decimal(0)).toDecimalPlaces(2);
+    this.assertDiscountPermission(subtotal, dto.adjustment, currentUser);
+    const adjustmentResult = this.calculateAdjustment(subtotal, dto.adjustment);
+    const discountedSubtotal = subtotal.minus(adjustmentResult.amount).toDecimalPlaces(2);
+    const taxRate = toMoney(dto.taxRate ?? 0);
+    const serviceChargeRate = toMoney(dto.serviceChargeRate ?? 0);
+    const tax = dto.tax === undefined ? discountedSubtotal.mul(taxRate).div(100).toDecimalPlaces(2) : toMoney(dto.tax);
+    const serviceCharge = dto.serviceCharge === undefined ? discountedSubtotal.mul(serviceChargeRate).div(100).toDecimalPlaces(2) : toMoney(dto.serviceCharge);
+    const tip = toMoney(dto.tip ?? 0);
+    const total = discountedSubtotal.plus(tax).plus(serviceCharge).plus(tip).toDecimalPlaces(2);
+
+    return {
+      currency: dto.currency ?? products[0]?.currency ?? 'USD',
+      orderType: (dto.orderType ?? OrderType.TAKEAWAY) as OrderType,
+      subtotal,
+      adjustment: adjustmentResult.amount,
+      adjustmentType: dto.adjustment?.type,
+      adjustmentValue: dto.adjustment ? toMoney(dto.adjustment.value) : undefined,
+      discountReason: dto.adjustment?.reason,
+      taxRate,
+      tax,
+      serviceChargeRate,
+      serviceCharge,
+      tip,
+      total,
+      items,
+    };
+  }
+
+  private assertDiscountPermission(subtotal: Decimal, adjustment: CreateOrderDto['adjustment'], currentUser?: AuthRequestUser) {
+    if (!adjustment) return;
+    const result = this.calculateAdjustment(subtotal, adjustment);
+    const ratio = subtotal.equals(0) ? new Decimal(0) : result.amount.div(subtotal).mul(100);
+    if (ratio.greaterThan(30) && currentUser?.role !== StoreRole.OWNER && currentUser?.role !== StoreRole.MANAGER) {
+      throw new BadRequestException({
+        code: 'MANAGER_APPROVAL_REQUIRED',
+        message: 'Manager approval is required for discounts above 30%.',
+      });
+    }
   }
 
   private resolvePayments(payments: CreateOrderDto['payments'], total: Decimal) {
