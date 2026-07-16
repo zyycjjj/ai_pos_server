@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { CatalogStatus, DiningTableStatus, ModifierOptionStatus, OrderStatus, OrderType, PaymentMethod, Prisma, ProductAvailabilityStatus } from '@prisma/client';
+import { CatalogStatus, DiningTableStatus, ModifierOptionStatus, OrderAuditAction, OrderStatus, OrderType, PaymentMethod, Prisma, ProductAvailabilityStatus } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
 import { StoreContextService } from '@/common/store-context.service';
@@ -10,7 +10,7 @@ import { PrintService } from '@/modules/print/print.service';
 import { ShiftsService } from '@/modules/shifts/shifts.service';
 import { PrismaService } from '@/prisma/prisma.service';
 
-import { AddTableItemsDto, CancelTableOrderDto, CheckoutTableDto, OpenTableDto, UpsertDiningAreaDto, UpsertDiningTableDto } from './dto/table.dto';
+import { AddTableItemsDto, CancelTableOrderDto, CheckoutTableDto, MergeTableDto, OpenTableDto, SplitBillDto, TransferTableDto, UpsertDiningAreaDto, UpsertDiningTableDto } from './dto/table.dto';
 
 type ProductWithModifiers = Prisma.ProductGetPayload<{ include: { modifierGroups: { include: { options: true } } } }>;
 
@@ -124,6 +124,17 @@ export class TablesService {
         include: this.orderInclude(),
       });
       await tx.diningTable.update({ where: { id }, data: { status: DiningTableStatus.OCCUPIED, currentOrderId: created.id } });
+      await tx.orderAuditLog.create({
+        data: {
+          storeId: this.getStoreId(),
+          orderId: created.id,
+          action: OrderAuditAction.TABLE_OPENED,
+          fromStatus: null,
+          toStatus: OrderStatus.OPEN,
+          reason: `Table opened: ${table.name}`,
+          operatorId: currentUser?.id,
+        },
+      });
       return created;
     });
     return this.getTable(id);
@@ -182,6 +193,151 @@ export class TablesService {
     });
     await this.printService.createAutoJobsForOrder(paid.id).catch(() => undefined);
     return this.getTable(id);
+  }
+
+  async transferTable(id: string, dto: TransferTableDto, currentUser?: AuthRequestUser) {
+    if (id === dto.targetTableId) throw new BadRequestException('Target table must be different.');
+    const [source, target] = await Promise.all([this.findTableWithOrder(id), this.findTable(dto.targetTableId)]);
+    const order = source.currentOrder;
+    if (source.status !== DiningTableStatus.OCCUPIED || !order || order.status !== OrderStatus.OPEN) {
+      throw new BadRequestException('Only occupied tables with an open order can be transferred.');
+    }
+    if (target.status !== DiningTableStatus.AVAILABLE && target.status !== DiningTableStatus.RESERVED) {
+      throw new BadRequestException('Target table must be available or reserved.');
+    }
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({ where: { id: order.id }, data: { tableId: target.id } });
+      await tx.diningTable.update({ where: { id: source.id }, data: { status: DiningTableStatus.AVAILABLE, currentOrderId: null } });
+      await tx.diningTable.update({ where: { id: target.id }, data: { status: DiningTableStatus.OCCUPIED, currentOrderId: order.id } });
+      await tx.orderAuditLog.create({
+        data: {
+          storeId: this.getStoreId(),
+          orderId: order.id,
+          action: OrderAuditAction.TABLE_TRANSFERRED,
+          fromStatus: OrderStatus.OPEN,
+          toStatus: OrderStatus.OPEN,
+          reason: dto.reason ?? `Table transferred from ${source.name} to ${target.name}`,
+          operatorId: currentUser?.id,
+        },
+      });
+    });
+    return this.getTable(target.id);
+  }
+
+  async mergeTable(id: string, dto: MergeTableDto, currentUser?: AuthRequestUser) {
+    if (id === dto.targetTableId) throw new BadRequestException('Target table must be different.');
+    const [source, target] = await Promise.all([this.findTableWithOrder(id), this.findTableWithOrder(dto.targetTableId)]);
+    const sourceOrder = source.currentOrder;
+    const targetOrder = target.currentOrder;
+    if (source.status !== DiningTableStatus.OCCUPIED || !sourceOrder || sourceOrder.status !== OrderStatus.OPEN) throw new BadRequestException('Source table must have an open order.');
+    if (target.status !== DiningTableStatus.OCCUPIED || !targetOrder || targetOrder.status !== OrderStatus.OPEN) throw new BadRequestException('Target table must have an open order.');
+    const sourceItems = sourceOrder.items.map((item) => this.cloneOrderItemData(item));
+    const newSubtotal = this.sumItems([...targetOrder.items, ...sourceOrder.items]).toDecimalPlaces(2);
+    await this.prisma.$transaction(async (tx) => {
+      await tx.order.update({
+        where: { id: targetOrder.id },
+        data: {
+          guestCount: (targetOrder.guestCount ?? 0) + (sourceOrder.guestCount ?? 0),
+          subtotal: newSubtotal,
+          total: newSubtotal.plus(targetOrder.tip).toDecimalPlaces(2),
+          items: { create: sourceItems },
+        },
+      });
+      await tx.order.update({ where: { id: sourceOrder.id }, data: { status: OrderStatus.CANCELLED, closedAt: new Date(), tableId: null } });
+      await tx.diningTable.update({ where: { id: source.id }, data: { status: DiningTableStatus.AVAILABLE, currentOrderId: null } });
+      await tx.orderAuditLog.create({
+        data: {
+          storeId: this.getStoreId(),
+          orderId: targetOrder.id,
+          action: OrderAuditAction.TABLE_MERGED,
+          fromStatus: OrderStatus.OPEN,
+          toStatus: OrderStatus.OPEN,
+          reason: dto.reason ?? `Merged ${source.name} into ${target.name}; source order ${sourceOrder.orderNumber}`,
+          operatorId: currentUser?.id,
+        },
+      });
+      await tx.orderAuditLog.create({
+        data: {
+          storeId: this.getStoreId(),
+          orderId: sourceOrder.id,
+          action: OrderAuditAction.TABLE_MERGED,
+          fromStatus: OrderStatus.OPEN,
+          toStatus: OrderStatus.CANCELLED,
+          reason: dto.reason ?? `Merged into ${target.name}; target order ${targetOrder.orderNumber}`,
+          operatorId: currentUser?.id,
+        },
+      });
+    });
+    return this.getTable(target.id);
+  }
+
+  async splitBill(id: string, dto: SplitBillDto, currentUser?: AuthRequestUser) {
+    const table = await this.findTableWithOrder(id);
+    const order = table.currentOrder;
+    if (!order || order.status !== OrderStatus.OPEN) throw new BadRequestException('Only open table orders can be split.');
+    const selected = this.resolveSplitSelection(order.items, dto.items);
+    const remainingItems = order.items.flatMap((item) => {
+      const quantity = item.quantity - (selected.get(item.id)?.quantity ?? 0);
+      return quantity > 0 ? [{ item, quantity }] : [];
+    });
+    if (remainingItems.length === 0) throw new BadRequestException('Split cannot move every item from the table order.');
+    const splitItems = Array.from(selected.values()).map(({ item, quantity }) => this.cloneOrderItemData(item, quantity));
+    const remainingSubtotal = remainingItems.reduce((sum, { item, quantity }) => sum.plus(multiplyMoney(item.unitPrice, quantity)), new Decimal(0)).toDecimalPlaces(2);
+    const splitSubtotal = Array.from(selected.values()).reduce((sum, { item, quantity }) => sum.plus(multiplyMoney(item.unitPrice, quantity)), new Decimal(0)).toDecimalPlaces(2);
+    const splitOrder = await this.prisma.$transaction(async (tx) => {
+      for (const { item, quantity } of remainingItems) {
+        await tx.orderItem.update({ where: { id: item.id }, data: { quantity, lineTotal: multiplyMoney(item.unitPrice, quantity) } });
+      }
+      for (const { item, quantity } of selected.values()) {
+        if (quantity === item.quantity) {
+          await tx.orderItem.delete({ where: { id: item.id } });
+        } else {
+          await tx.orderItem.update({ where: { id: item.id }, data: { quantity: item.quantity - quantity, lineTotal: multiplyMoney(item.unitPrice, item.quantity - quantity) } });
+        }
+      }
+      await tx.order.update({ where: { id: order.id }, data: { subtotal: remainingSubtotal, total: remainingSubtotal.plus(order.tip).toDecimalPlaces(2) } });
+      const created = await tx.order.create({
+        data: {
+          storeId: this.getStoreId(),
+          orderNumber: this.createOrderNumber(),
+          pickupNumber: await this.createPickupNumber(tx),
+          orderType: OrderType.DINE_IN,
+          tableId: table.id,
+          guestCount: 0,
+          status: OrderStatus.OPEN,
+          currency: order.currency,
+          subtotal: splitSubtotal,
+          total: splitSubtotal,
+          openedAt: new Date(),
+          items: { create: splitItems },
+        },
+        include: this.orderInclude(),
+      });
+      await tx.orderAuditLog.create({
+        data: {
+          storeId: this.getStoreId(),
+          orderId: order.id,
+          action: OrderAuditAction.BILL_SPLIT,
+          fromStatus: OrderStatus.OPEN,
+          toStatus: OrderStatus.OPEN,
+          reason: dto.reason ?? `Split bill created ${created.orderNumber}`,
+          operatorId: currentUser?.id,
+        },
+      });
+      await tx.orderAuditLog.create({
+        data: {
+          storeId: this.getStoreId(),
+          orderId: created.id,
+          action: OrderAuditAction.BILL_SPLIT,
+          fromStatus: null,
+          toStatus: OrderStatus.OPEN,
+          reason: dto.reason ?? `Split from ${order.orderNumber}`,
+          operatorId: currentUser?.id,
+        },
+      });
+      return created;
+    });
+    return presentOrder(splitOrder);
   }
 
   async clearTable(id: string) {
@@ -288,6 +444,36 @@ export class TablesService {
       cashReceived: cashLines.reduce((sum, line) => sum.plus(line.amountReceived ?? 0), new Decimal(0)).toDecimalPlaces(2),
       changeDue: cashLines.reduce((sum, line) => sum.plus(line.changeDue ?? 0), new Decimal(0)).toDecimalPlaces(2),
     };
+  }
+
+  private cloneOrderItemData(item: Prisma.OrderItemGetPayload<{ include: { product: true; refundItems: true } }>, quantity = item.quantity) {
+    return {
+      productId: item.productId,
+      productNameSnapshot: item.productNameSnapshot,
+      productCategorySnapshot: item.productCategorySnapshot,
+      quantity,
+      unitPrice: item.unitPrice,
+      lineTotal: multiplyMoney(item.unitPrice, quantity),
+      modifiers: item.modifiers as Prisma.InputJsonValue,
+    };
+  }
+
+  private sumItems(items: Array<{ lineTotal: Decimal }>) {
+    return items.reduce((sum, item) => sum.plus(item.lineTotal), new Decimal(0));
+  }
+
+  private resolveSplitSelection(items: Prisma.OrderItemGetPayload<{ include: { product: true; refundItems: true } }>[], selections: SplitBillDto['items']) {
+    const itemById = new Map(items.map((item) => [item.id, item]));
+    const selected = new Map<string, { item: Prisma.OrderItemGetPayload<{ include: { product: true; refundItems: true } }>; quantity: number }>();
+    for (const selection of selections) {
+      const item = itemById.get(selection.orderItemId);
+      if (!item) throw new BadRequestException(`Order item not found: ${selection.orderItemId}`);
+      const already = selected.get(item.id)?.quantity ?? 0;
+      const nextQuantity = already + selection.quantity;
+      if (nextQuantity > item.quantity) throw new BadRequestException('Split quantity exceeds available quantity.');
+      selected.set(item.id, { item, quantity: nextQuantity });
+    }
+    return selected;
   }
 
   private presentTable(table: Prisma.DiningTableGetPayload<{ include: { area: true; currentOrder: { include: ReturnType<TablesService['orderInclude']> } } }>) {

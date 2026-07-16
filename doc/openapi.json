@@ -226,7 +226,12 @@
           "VOIDED",
           "REFUNDED",
           "HELD",
-          "RESUMED"
+          "RESUMED",
+          "TABLE_OPENED",
+          "TABLE_TRANSFERRED",
+          "TABLE_MERGED",
+          "BILL_SPLIT",
+          "TABLE_CLEARED"
         ]
       },
       "ShiftStatus": {

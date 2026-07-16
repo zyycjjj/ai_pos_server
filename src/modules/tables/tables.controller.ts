@@ -8,7 +8,7 @@ import { Roles } from '@/modules/auth/roles.decorator';
 import { RolesGuard } from '@/modules/auth/roles.guard';
 
 import { TablesService } from './tables.service';
-import { AddTableItemsDto, CancelTableOrderDto, CheckoutTableDto, OpenTableDto, UpsertDiningAreaDto, UpsertDiningTableDto } from './dto/table.dto';
+import { AddTableItemsDto, CancelTableOrderDto, CheckoutTableDto, MergeTableDto, OpenTableDto, SplitBillDto, TransferTableDto, UpsertDiningAreaDto, UpsertDiningTableDto } from './dto/table.dto';
 
 @ApiTags('tables')
 @Controller()
@@ -39,6 +39,24 @@ export class TablesController {
   @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
   checkout(@Param('id') id: string, @Body() dto: CheckoutTableDto, @CurrentUser() currentUser?: AuthRequestUser) {
     return this.tablesService.checkout(id, dto, currentUser);
+  }
+
+  @Post('tables/:id/transfer')
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
+  transferTable(@Param('id') id: string, @Body() dto: TransferTableDto, @CurrentUser() currentUser?: AuthRequestUser) {
+    return this.tablesService.transferTable(id, dto, currentUser);
+  }
+
+  @Post('tables/:id/merge')
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
+  mergeTable(@Param('id') id: string, @Body() dto: MergeTableDto, @CurrentUser() currentUser?: AuthRequestUser) {
+    return this.tablesService.mergeTable(id, dto, currentUser);
+  }
+
+  @Post('tables/:id/split')
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
+  splitBill(@Param('id') id: string, @Body() dto: SplitBillDto, @CurrentUser() currentUser?: AuthRequestUser) {
+    return this.tablesService.splitBill(id, dto, currentUser);
   }
 
   @Post('tables/:id/clear')

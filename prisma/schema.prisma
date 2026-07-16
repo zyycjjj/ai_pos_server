@@ -51,6 +51,11 @@ enum OrderAuditAction {
   REFUNDED
   HELD
   RESUMED
+  TABLE_OPENED
+  TABLE_TRANSFERRED
+  TABLE_MERGED
+  BILL_SPLIT
+  TABLE_CLEARED
 }
 
 enum BusinessDayStatus {

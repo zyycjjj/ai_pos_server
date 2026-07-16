@@ -93,3 +93,54 @@ export class CancelTableOrderDto {
   @MaxLength(240)
   reason?: string;
 }
+
+export class TransferTableDto {
+  @ApiProperty()
+  @IsString()
+  targetTableId: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(240)
+  reason?: string;
+}
+
+export class MergeTableDto {
+  @ApiProperty()
+  @IsString()
+  targetTableId: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(240)
+  reason?: string;
+}
+
+export class SplitBillItemDto {
+  @ApiProperty()
+  @IsString()
+  orderItemId: string;
+
+  @ApiProperty({ minimum: 1 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  quantity: number;
+}
+
+export class SplitBillDto {
+  @ApiProperty({ type: [SplitBillItemDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => SplitBillItemDto)
+  items: SplitBillItemDto[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(240)
+  reason?: string;
+}
