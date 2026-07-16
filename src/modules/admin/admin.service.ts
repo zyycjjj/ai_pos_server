@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { AiDraftStatus, CatalogStatus, KitchenStationStatus, ModifierOptionStatus, OrderStatus, ProductAvailabilityStatus, StoreRole } from '@prisma/client';
+import { AiDraftStatus, CampaignStatus, CampaignType, CatalogStatus, KitchenStationStatus, ModifierOptionStatus, OrderStatus, ProductAvailabilityStatus, PromotionStackingPolicy, StoreRole } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { ClsService } from 'nestjs-cls';
 
@@ -12,6 +12,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { DisableStaffDto } from './dto/disable-staff.dto';
 import { UpdateStaffRoleDto } from './dto/update-staff-role.dto';
+import type { UpdateCampaignStatusDto, UpsertCampaignDto } from './dto/campaign.dto';
 import type {
   ListAdminProductsDto,
   UpdateCatalogStatusDto,
@@ -451,11 +452,104 @@ export class AdminService {
       id: campaign.id,
       name: campaign.name,
       goal: campaign.goal,
+      type: campaign.type,
+      discountType: campaign.discountType,
+      discountValue: campaign.discountValue,
+      thresholdAmount: campaign.thresholdAmount ? toMoneyNumber(campaign.thresholdAmount) : null,
+      promoCode: campaign.promoCode,
+      productId: campaign.productId,
+      categoryName: campaign.categoryName,
+      stackingPolicy: campaign.stackingPolicy,
+      usageLimit: campaign.usageLimit,
+      usageCount: campaign.usageCount,
+      discountTotal: toMoneyNumber(campaign.discountTotal),
       timeWindow: campaign.timeWindow,
       category: this.inferCampaignCategory(campaign.structuredJson),
       status: campaign.status,
       createdAt: campaign.createdAt.toISOString(),
     }));
+  }
+
+  async createCampaign(dto: UpsertCampaignDto) {
+    const storeId = this.storeContext.getStoreId();
+    const campaign = await this.prisma.campaign.create({
+      data: {
+        storeId,
+        name: dto.name.trim(),
+        goal: dto.goal,
+        type: dto.type as CampaignType,
+        status: CampaignStatus.DRAFT,
+        discountType: dto.discountType ?? 'percentage',
+        discountValue: dto.discountValue,
+        thresholdAmount: dto.thresholdAmount,
+        promoCode: dto.promoCode?.trim().toUpperCase(),
+        productId: dto.productId,
+        categoryName: dto.categoryName,
+        stackingPolicy: (dto.stackingPolicy ?? PromotionStackingPolicy.BEST_ONLY) as PromotionStackingPolicy,
+        priority: dto.priority ?? 0,
+        usageLimit: dto.usageLimit,
+        structuredJson: { source: 'admin_promotion_engine' } as Prisma.InputJsonValue,
+      },
+    });
+    return this.getCampaign(campaign.id);
+  }
+
+  async updateCampaign(id: string, dto: UpsertCampaignDto) {
+    await this.findCampaign(id);
+    await this.prisma.campaign.update({
+      where: { id },
+      data: {
+        name: dto.name.trim(),
+        goal: dto.goal,
+        type: dto.type as CampaignType,
+        discountType: dto.discountType ?? 'percentage',
+        discountValue: dto.discountValue,
+        thresholdAmount: dto.thresholdAmount,
+        promoCode: dto.promoCode?.trim().toUpperCase(),
+        productId: dto.productId,
+        categoryName: dto.categoryName,
+        stackingPolicy: (dto.stackingPolicy ?? PromotionStackingPolicy.BEST_ONLY) as PromotionStackingPolicy,
+        priority: dto.priority ?? 0,
+        usageLimit: dto.usageLimit,
+      },
+    });
+    return this.getCampaign(id);
+  }
+
+  async updateCampaignStatus(id: string, dto: UpdateCampaignStatusDto) {
+    await this.findCampaign(id);
+    await this.prisma.campaign.update({ where: { id }, data: { status: dto.status as CampaignStatus } });
+    return this.getCampaign(id);
+  }
+
+  private async getCampaign(id: string) {
+    const campaign = await this.findCampaign(id);
+    return {
+      id: campaign.id,
+      name: campaign.name,
+      goal: campaign.goal,
+      type: campaign.type,
+      discountType: campaign.discountType,
+      discountValue: campaign.discountValue,
+      thresholdAmount: campaign.thresholdAmount ? toMoneyNumber(campaign.thresholdAmount) : null,
+      promoCode: campaign.promoCode,
+      productId: campaign.productId,
+      categoryName: campaign.categoryName,
+      stackingPolicy: campaign.stackingPolicy,
+      usageLimit: campaign.usageLimit,
+      usageCount: campaign.usageCount,
+      discountTotal: toMoneyNumber(campaign.discountTotal),
+      timeWindow: campaign.timeWindow,
+      category: this.inferCampaignCategory(campaign.structuredJson),
+      status: campaign.status,
+      createdAt: campaign.createdAt.toISOString(),
+    };
+  }
+
+  private async findCampaign(id: string) {
+    const campaign = await this.prisma.campaign.findFirst({ where: { id, storeId: this.storeContext.getStoreId() } });
+    if (!campaign) throw new NotFoundException('Campaign not found.');
+    return campaign;
   }
 
   async listAiDrafts() {

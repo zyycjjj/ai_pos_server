@@ -359,7 +359,26 @@
           "DRAFT",
           "ACTIVE",
           "PAUSED",
-          "ENDED"
+          "ENDED",
+          "ARCHIVED"
+        ]
+      },
+      "CampaignType": {
+        "type": "string",
+        "enum": [
+          "ORDER_DISCOUNT",
+          "THRESHOLD_DISCOUNT",
+          "ITEM_DISCOUNT",
+          "PROMO_CODE",
+          "BUY_X_GET_Y"
+        ]
+      },
+      "PromotionStackingPolicy": {
+        "type": "string",
+        "enum": [
+          "BEST_ONLY",
+          "STACKABLE",
+          "EXCLUSIVE"
         ]
       },
       "AiConversationStatus": {
@@ -1313,6 +1332,44 @@
               }
             ]
           },
+          "promotionDiscountAmount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "manualDiscountAmount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "totalDiscountAmount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "appliedPromotions": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {}
+            ]
+          },
           "adjustmentType": {
             "oneOf": [
               {
@@ -1546,6 +1603,9 @@
           "currency",
           "subtotal",
           "adjustment",
+          "promotionDiscountAmount",
+          "manualDiscountAmount",
+          "totalDiscountAmount",
           "taxRate",
           "tax",
           "serviceChargeRate",
@@ -3120,6 +3180,12 @@
           "status": {
             "$ref": "#/components/schemas/CampaignStatus"
           },
+          "type": {
+            "$ref": "#/components/schemas/CampaignType"
+          },
+          "stackingPolicy": {
+            "$ref": "#/components/schemas/PromotionStackingPolicy"
+          },
           "discountType": {
             "oneOf": [
               {
@@ -3134,6 +3200,97 @@
             "oneOf": [
               {
                 "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "thresholdAmount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "promoCode": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "productId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "categoryName": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "startsAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "endsAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "usageLimit": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "usageCount": {
+            "type": "integer"
+          },
+          "discountTotal": {
+            "oneOf": [
+              {
+                "type": "string"
               },
               {
                 "type": "number"
@@ -3203,6 +3360,11 @@
           "store",
           "name",
           "status",
+          "type",
+          "stackingPolicy",
+          "priority",
+          "usageCount",
+          "discountTotal",
           "createdAt",
           "updatedAt"
         ]
@@ -4937,6 +5099,44 @@
               }
             ]
           },
+          "promotionDiscountAmount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "manualDiscountAmount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "totalDiscountAmount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "appliedPromotions": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {}
+            ]
+          },
           "adjustmentType": {
             "oneOf": [
               {
@@ -5190,6 +5390,9 @@
           "currency",
           "subtotal",
           "adjustment",
+          "promotionDiscountAmount",
+          "manualDiscountAmount",
+          "totalDiscountAmount",
           "taxRate",
           "tax",
           "serviceChargeRate",
@@ -7965,6 +8168,12 @@
           "status": {
             "$ref": "#/components/schemas/CampaignStatus"
           },
+          "type": {
+            "$ref": "#/components/schemas/CampaignType"
+          },
+          "stackingPolicy": {
+            "$ref": "#/components/schemas/PromotionStackingPolicy"
+          },
           "discountType": {
             "oneOf": [
               {
@@ -7979,6 +8188,97 @@
             "oneOf": [
               {
                 "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "thresholdAmount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "promoCode": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "productId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "categoryName": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "startsAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "endsAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "usageLimit": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "usageCount": {
+            "type": "integer"
+          },
+          "discountTotal": {
+            "oneOf": [
+              {
+                "type": "string"
               },
               {
                 "type": "number"
@@ -8097,6 +8397,11 @@
           "storeId",
           "name",
           "status",
+          "type",
+          "stackingPolicy",
+          "priority",
+          "usageCount",
+          "discountTotal",
           "createdAt",
           "updatedAt"
         ]
@@ -11015,6 +11320,18 @@
           "adjustment": {
             "type": "integer"
           },
+          "promotionDiscountAmount": {
+            "type": "integer"
+          },
+          "manualDiscountAmount": {
+            "type": "integer"
+          },
+          "totalDiscountAmount": {
+            "type": "integer"
+          },
+          "appliedPromotions": {
+            "type": "integer"
+          },
           "adjustmentType": {
             "type": "integer"
           },
@@ -11090,6 +11407,10 @@
           "currency",
           "subtotal",
           "adjustment",
+          "promotionDiscountAmount",
+          "manualDiscountAmount",
+          "totalDiscountAmount",
+          "appliedPromotions",
           "adjustmentType",
           "adjustmentValue",
           "discountReason",
@@ -11139,6 +11460,45 @@
             ]
           },
           "adjustment": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "promotionDiscountAmount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "manualDiscountAmount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "totalDiscountAmount": {
             "oneOf": [
               {
                 "type": "string"
@@ -11297,6 +11657,45 @@
             ]
           },
           "adjustment": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "promotionDiscountAmount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "manualDiscountAmount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "totalDiscountAmount": {
             "oneOf": [
               {
                 "type": "string"
@@ -11555,6 +11954,45 @@
             ]
           },
           "adjustment": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "promotionDiscountAmount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "manualDiscountAmount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "totalDiscountAmount": {
             "oneOf": [
               {
                 "type": "string"
@@ -11921,6 +12359,45 @@
             ]
           },
           "adjustment": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "promotionDiscountAmount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "manualDiscountAmount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "totalDiscountAmount": {
             "oneOf": [
               {
                 "type": "string"
@@ -17543,10 +18020,46 @@
           "status": {
             "type": "integer"
           },
+          "type": {
+            "type": "integer"
+          },
+          "stackingPolicy": {
+            "type": "integer"
+          },
           "discountType": {
             "type": "integer"
           },
           "discountValue": {
+            "type": "integer"
+          },
+          "thresholdAmount": {
+            "type": "integer"
+          },
+          "promoCode": {
+            "type": "integer"
+          },
+          "productId": {
+            "type": "integer"
+          },
+          "categoryName": {
+            "type": "integer"
+          },
+          "startsAt": {
+            "type": "integer"
+          },
+          "endsAt": {
+            "type": "integer"
+          },
+          "priority": {
+            "type": "integer"
+          },
+          "usageLimit": {
+            "type": "integer"
+          },
+          "usageCount": {
+            "type": "integer"
+          },
+          "discountTotal": {
             "type": "integer"
           },
           "timeWindow": {
@@ -17580,8 +18093,20 @@
           "name",
           "goal",
           "status",
+          "type",
+          "stackingPolicy",
           "discountType",
           "discountValue",
+          "thresholdAmount",
+          "promoCode",
+          "productId",
+          "categoryName",
+          "startsAt",
+          "endsAt",
+          "priority",
+          "usageLimit",
+          "usageCount",
+          "discountTotal",
           "timeWindow",
           "bannerCopy",
           "staffMessage",
@@ -17604,6 +18129,62 @@
                 "type": "number"
               }
             ]
+          },
+          "thresholdAmount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "priority": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "usageLimit": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "usageCount": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "number"
+              }
+            ]
+          },
+          "discountTotal": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         }
       },
@@ -17617,6 +18198,62 @@
               },
               {
                 "type": "number"
+              }
+            ]
+          },
+          "thresholdAmount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "priority": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "usageLimit": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "usageCount": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "discountTotal": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
               }
             ]
           }
@@ -17675,6 +18312,26 @@
               }
             ]
           },
+          "type": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CampaignType"
+              }
+            ]
+          },
+          "stackingPolicy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PromotionStackingPolicy"
+              }
+            ]
+          },
           "discountType": {
             "oneOf": [
               {
@@ -17692,6 +18349,114 @@
               },
               {
                 "type": "number"
+              }
+            ]
+          },
+          "thresholdAmount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "promoCode": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "productId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "categoryName": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "startsAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "endsAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "priority": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "usageLimit": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "usageCount": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "discountTotal": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
               }
             ]
           },
@@ -17812,6 +18577,26 @@
               }
             ]
           },
+          "type": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/CampaignType"
+              }
+            ]
+          },
+          "stackingPolicy": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/PromotionStackingPolicy"
+              }
+            ]
+          },
           "discountType": {
             "oneOf": [
               {
@@ -17829,6 +18614,114 @@
               },
               {
                 "type": "number"
+              }
+            ]
+          },
+          "thresholdAmount": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "promoCode": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "productId": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "categoryName": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "startsAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "endsAt": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date-time"
+              }
+            ]
+          },
+          "priority": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "usageLimit": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "usageCount": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer"
+              }
+            ]
+          },
+          "discountTotal": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
               }
             ]
           },

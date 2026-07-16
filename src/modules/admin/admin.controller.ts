@@ -11,6 +11,7 @@ import { AdminService } from './admin.service';
 import { CreateStaffDto } from './dto/create-staff.dto';
 import { DisableStaffDto } from './dto/disable-staff.dto';
 import { UpdateStaffRoleDto } from './dto/update-staff-role.dto';
+import { UpdateCampaignStatusDto, UpsertCampaignDto } from './dto/campaign.dto';
 import {
   ListAdminProductsDto,
   UpdateCatalogStatusDto,
@@ -248,6 +249,24 @@ export class AdminController {
   @ApiOperation({ summary: 'List campaign drafts for the active store.' })
   listCampaigns() {
     return this.adminService.listCampaigns();
+  }
+
+  @Post('campaigns')
+  @ApiOperation({ summary: 'Create a promotion campaign.' })
+  createCampaign(@Body() dto: UpsertCampaignDto) {
+    return this.adminService.createCampaign(dto);
+  }
+
+  @Patch('campaigns/:id')
+  @ApiOperation({ summary: 'Update a promotion campaign.' })
+  updateCampaign(@Param('id') id: string, @Body() dto: UpsertCampaignDto) {
+    return this.adminService.updateCampaign(id, dto);
+  }
+
+  @Patch('campaigns/:id/status')
+  @ApiOperation({ summary: 'Update campaign status.' })
+  updateCampaignStatus(@Param('id') id: string, @Body() dto: UpdateCampaignStatusDto) {
+    return this.adminService.updateCampaignStatus(id, dto);
   }
 
   @Get('ai-drafts')

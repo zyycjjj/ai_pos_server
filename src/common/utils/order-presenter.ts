@@ -13,6 +13,12 @@ type OrderWithItems = Order & {
 
 export function presentOrder(order: OrderWithItems) {
   const kitchenTickets = order.kitchenTickets ?? [];
+  const promotionFields = order as OrderWithItems & {
+    promotionDiscountAmount?: Order['subtotal'];
+    manualDiscountAmount?: Order['subtotal'];
+    totalDiscountAmount?: Order['subtotal'];
+    appliedPromotions?: unknown;
+  };
   return {
     id: order.id,
     orderNumber: order.orderNumber,
@@ -27,6 +33,10 @@ export function presentOrder(order: OrderWithItems) {
     currency: order.currency,
     subtotal: toMoneyNumber(order.subtotal),
     adjustment: toMoneyNumber(order.adjustment),
+    promotionDiscountAmount: promotionFields.promotionDiscountAmount ? toMoneyNumber(promotionFields.promotionDiscountAmount) : 0,
+    manualDiscountAmount: promotionFields.manualDiscountAmount ? toMoneyNumber(promotionFields.manualDiscountAmount) : toMoneyNumber(order.adjustment),
+    totalDiscountAmount: promotionFields.totalDiscountAmount ? toMoneyNumber(promotionFields.totalDiscountAmount) : toMoneyNumber(order.adjustment),
+    appliedPromotions: promotionFields.appliedPromotions ?? [],
     adjustmentType: order.adjustmentType,
     adjustmentValue: order.adjustmentValue === null ? null : toMoneyNumber(order.adjustmentValue),
     discountReason: 'discountReason' in order ? order.discountReason : null,

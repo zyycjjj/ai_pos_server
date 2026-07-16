@@ -166,6 +166,21 @@ enum CampaignStatus {
   ACTIVE
   PAUSED
   ENDED
+  ARCHIVED
+}
+
+enum CampaignType {
+  ORDER_DISCOUNT
+  THRESHOLD_DISCOUNT
+  ITEM_DISCOUNT
+  PROMO_CODE
+  BUY_X_GET_Y
+}
+
+enum PromotionStackingPolicy {
+  BEST_ONLY
+  STACKABLE
+  EXCLUSIVE
 }
 
 enum CatalogStatus {
@@ -395,46 +410,50 @@ model ProductModifierOption {
 }
 
 model Order {
-  id                String          @id() @default(cuid())
-  storeId           String?
-  store             Store?          @relation(fields: [storeId], references: [id])
-  orderNumber       String          @unique()
-  pickupNumber      String?
-  orderType         OrderType       @default(TAKEAWAY)
-  tableId           String?
-  table             DiningTable?    @relation("OrderDiningTable", fields: [tableId], references: [id])
-  currentForTable   DiningTable?    @relation("CurrentTableOrder")
-  guestCount        Int?
-  status            OrderStatus     @default(OPEN)
-  printStatus       PrintStatus     @default(NOT_PRINTED)
-  paymentMethod     PaymentMethod?
-  currency          String          @default("USD")
-  subtotal          Decimal         @db.Decimal(10, 2)
-  adjustment        Decimal         @default(0) @db.Decimal(10, 2)
-  adjustmentType    String?
-  adjustmentValue   Decimal?        @db.Decimal(10, 2)
-  discountReason    String?         @db.Text()
-  taxRate           Decimal         @default(0) @db.Decimal(7, 4)
-  tax               Decimal         @default(0) @db.Decimal(10, 2)
-  serviceChargeRate Decimal         @default(0) @db.Decimal(7, 4)
-  serviceCharge     Decimal         @default(0) @db.Decimal(10, 2)
-  tip               Decimal         @default(0) @db.Decimal(10, 2)
-  total             Decimal         @db.Decimal(10, 2)
-  cashReceived      Decimal?        @db.Decimal(10, 2)
-  changeDue         Decimal?        @db.Decimal(10, 2)
-  paidAt            DateTime?
-  printedAt         DateTime?
-  heldAt            DateTime?
-  resumedAt         DateTime?
-  openedAt          DateTime?
-  closedAt          DateTime?
-  items             OrderItem[]
-  payments          OrderPayment[]
-  refunds           Refund[]
-  auditLogs         OrderAuditLog[]
-  kitchenTickets    KitchenTicket[]
-  createdAt         DateTime        @default(now())
-  updatedAt         DateTime        @updatedAt()
+  id                      String          @id() @default(cuid())
+  storeId                 String?
+  store                   Store?          @relation(fields: [storeId], references: [id])
+  orderNumber             String          @unique()
+  pickupNumber            String?
+  orderType               OrderType       @default(TAKEAWAY)
+  tableId                 String?
+  table                   DiningTable?    @relation("OrderDiningTable", fields: [tableId], references: [id])
+  currentForTable         DiningTable?    @relation("CurrentTableOrder")
+  guestCount              Int?
+  status                  OrderStatus     @default(OPEN)
+  printStatus             PrintStatus     @default(NOT_PRINTED)
+  paymentMethod           PaymentMethod?
+  currency                String          @default("USD")
+  subtotal                Decimal         @db.Decimal(10, 2)
+  adjustment              Decimal         @default(0) @db.Decimal(10, 2)
+  promotionDiscountAmount Decimal         @default(0) @db.Decimal(10, 2)
+  manualDiscountAmount    Decimal         @default(0) @db.Decimal(10, 2)
+  totalDiscountAmount     Decimal         @default(0) @db.Decimal(10, 2)
+  appliedPromotions       Json?
+  adjustmentType          String?
+  adjustmentValue         Decimal?        @db.Decimal(10, 2)
+  discountReason          String?         @db.Text()
+  taxRate                 Decimal         @default(0) @db.Decimal(7, 4)
+  tax                     Decimal         @default(0) @db.Decimal(10, 2)
+  serviceChargeRate       Decimal         @default(0) @db.Decimal(7, 4)
+  serviceCharge           Decimal         @default(0) @db.Decimal(10, 2)
+  tip                     Decimal         @default(0) @db.Decimal(10, 2)
+  total                   Decimal         @db.Decimal(10, 2)
+  cashReceived            Decimal?        @db.Decimal(10, 2)
+  changeDue               Decimal?        @db.Decimal(10, 2)
+  paidAt                  DateTime?
+  printedAt               DateTime?
+  heldAt                  DateTime?
+  resumedAt               DateTime?
+  openedAt                DateTime?
+  closedAt                DateTime?
+  items                   OrderItem[]
+  payments                OrderPayment[]
+  refunds                 Refund[]
+  auditLogs               OrderAuditLog[]
+  kitchenTickets          KitchenTicket[]
+  createdAt               DateTime        @default(now())
+  updatedAt               DateTime        @updatedAt()
 
   @@index([storeId])
   @@index([tableId])
@@ -769,23 +788,37 @@ model AiDraft {
 }
 
 model Campaign {
-  id             String         @id() @default(cuid())
-  storeId        String
-  store          Store          @relation(fields: [storeId], references: [id])
-  name           String
-  goal           String?
-  status         CampaignStatus @default(DRAFT)
-  discountType   String?
-  discountValue  Float?
-  timeWindow     String?
-  bannerCopy     String?
-  staffMessage   String?
-  structuredJson Json?
-  createdById    String?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt()
+  id              String                  @id() @default(cuid())
+  storeId         String
+  store           Store                   @relation(fields: [storeId], references: [id])
+  name            String
+  goal            String?
+  status          CampaignStatus          @default(DRAFT)
+  type            CampaignType            @default(ORDER_DISCOUNT)
+  stackingPolicy  PromotionStackingPolicy @default(BEST_ONLY)
+  discountType    String?
+  discountValue   Float?
+  thresholdAmount Decimal?                @db.Decimal(10, 2)
+  promoCode       String?
+  productId       String?
+  categoryName    String?
+  startsAt        DateTime?
+  endsAt          DateTime?
+  priority        Int                     @default(0)
+  usageLimit      Int?
+  usageCount      Int                     @default(0)
+  discountTotal   Decimal                 @default(0) @db.Decimal(10, 2)
+  timeWindow      String?
+  bannerCopy      String?
+  staffMessage    String?
+  structuredJson  Json?
+  createdById     String?
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt()
 
   @@index([storeId])
+  @@index([storeId, status])
+  @@index([storeId, promoCode])
 }
 
 model AiConversation {

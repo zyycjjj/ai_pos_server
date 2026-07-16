@@ -50,6 +50,8 @@ export class EscPosRenderer {
       separator(),
       moneyLine('Subtotal', payload.totals?.subtotal),
       moneyLine('Discount', payload.totals?.adjustment),
+      moneyLine('Promotion Discount', payload.totals?.promotionDiscountAmount),
+      ...formatPromotions(payload.totals?.appliedPromotions),
       moneyLine('Tax', payload.totals?.tax),
       moneyLine('Service', payload.totals?.serviceCharge),
       moneyLine('Tip', payload.totals?.tip),
@@ -160,6 +162,11 @@ function formatModifiers(modifiers: unknown) {
     }
     return `  ${[modifier.groupName, modifier.optionName].filter(Boolean).join(': ')}`;
   });
+}
+
+function formatPromotions(promotions: unknown) {
+  if (!Array.isArray(promotions)) return [];
+  return promotions.map((promotion: any) => `Promo: ${promotion.name}${promotion.promoCode ? ` (${promotion.promoCode})` : ''}`);
 }
 
 function formatDate(value: unknown) {

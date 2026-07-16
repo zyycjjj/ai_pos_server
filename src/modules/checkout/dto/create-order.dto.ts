@@ -127,6 +127,18 @@ export class CreateOrderDto {
   @Type(() => CreateOrderAdjustmentDto)
   adjustment?: CreateOrderAdjustmentDto;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  promoCode?: string;
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  selectedPromotionIds?: string[];
+
   @ApiProperty({ type: [CreateOrderPaymentLineDto] })
   @IsArray()
   @ArrayMinSize(1)
@@ -160,6 +172,18 @@ export class HoldOrderDto {
   @ValidateNested()
   @Type(() => CreateOrderAdjustmentDto)
   adjustment?: CreateOrderAdjustmentDto;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  promoCode?: string;
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  selectedPromotionIds?: string[];
 
   @ApiPropertyOptional({ default: 0 })
   @IsOptional()

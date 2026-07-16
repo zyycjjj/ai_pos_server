@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { ModifierOptionStatus, OrderAuditAction, OrderStatus, OrderType, PaymentMethod, PrintStatus, Prisma, ProductAvailabilityStatus, RefundStatus, StoreRole } from '@prisma/client';
+import { Campaign, CampaignStatus, CampaignType, ModifierOptionStatus, OrderAuditAction, OrderStatus, OrderType, PaymentMethod, PrintStatus, Prisma, ProductAvailabilityStatus, PromotionStackingPolicy, RefundStatus, StoreRole } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
 import { multiplyMoney, toMoney, toMoneyNumber } from '@/common/utils/money';
@@ -103,6 +103,10 @@ export class CheckoutService {
             currency: orderDraft.currency,
             subtotal: orderDraft.subtotal,
             adjustment: orderDraft.adjustment,
+            promotionDiscountAmount: orderDraft.promotionDiscountAmount,
+            manualDiscountAmount: orderDraft.manualDiscountAmount,
+            totalDiscountAmount: orderDraft.totalDiscountAmount,
+            appliedPromotions: orderDraft.appliedPromotions as unknown as Prisma.InputJsonValue,
             adjustmentType: orderDraft.adjustmentType,
             adjustmentValue: orderDraft.adjustmentValue,
             discountReason: orderDraft.discountReason,
@@ -556,6 +560,10 @@ export class CheckoutService {
     orderType: OrderType;
     subtotal: Decimal;
     adjustment: Decimal;
+    promotionDiscountAmount: Decimal;
+    manualDiscountAmount: Decimal;
+    totalDiscountAmount: Decimal;
+    appliedPromotions: Array<{ id: string; name: string; type: string; promoCode: string | null; discountAmount: number }>;
     adjustmentType?: string;
     adjustmentValue?: Decimal;
     discountReason?: string;
@@ -600,6 +608,10 @@ export class CheckoutService {
                 currency: input.currency,
                 subtotal: input.subtotal,
                 adjustment: input.adjustment,
+                promotionDiscountAmount: input.promotionDiscountAmount,
+                manualDiscountAmount: input.manualDiscountAmount,
+                totalDiscountAmount: input.totalDiscountAmount,
+                appliedPromotions: input.appliedPromotions as unknown as Prisma.InputJsonValue,
                 adjustmentType: input.adjustmentType,
                 adjustmentValue: input.adjustmentValue,
                 discountReason: input.discountReason,
@@ -617,6 +629,15 @@ export class CheckoutService {
               },
               include: this.orderListInclude(),
             });
+            for (const promotion of input.appliedPromotions) {
+              await tx.campaign.update({
+                where: { id: promotion.id },
+                data: {
+                  usageCount: { increment: 1 },
+                  discountTotal: { increment: promotion.discountAmount },
+                },
+              });
+            }
             if (input.shiftId && this.shiftsService) {
               await this.shiftsService.recordCashSaleMovements(tx, {
                 storeId: input.storeId,
@@ -691,7 +712,7 @@ export class CheckoutService {
     return { amount: amount.toDecimalPlaces(2) };
   }
 
-  private async buildOrderDraft(dto: Pick<CreateOrderDto, 'items' | 'orderType' | 'currency' | 'adjustment' | 'tax' | 'taxRate' | 'serviceCharge' | 'serviceChargeRate' | 'tip'>, currentUser?: AuthRequestUser) {
+  private async buildOrderDraft(dto: Pick<CreateOrderDto, 'items' | 'orderType' | 'currency' | 'adjustment' | 'tax' | 'taxRate' | 'serviceCharge' | 'serviceChargeRate' | 'tip' | 'promoCode' | 'selectedPromotionIds'>, currentUser?: AuthRequestUser) {
     const storeId = this.getStoreId();
     const productIds = [...new Set(dto.items.map((item) => item.productId))];
     const products = await this.prisma.product.findMany({
@@ -731,7 +752,15 @@ export class CheckoutService {
     const subtotal = items.reduce((sum, item) => sum.plus(item.lineTotal), new Decimal(0)).toDecimalPlaces(2);
     this.assertDiscountPermission(subtotal, dto.adjustment, currentUser);
     const adjustmentResult = this.calculateAdjustment(subtotal, dto.adjustment);
-    const discountedSubtotal = subtotal.minus(adjustmentResult.amount).toDecimalPlaces(2);
+    const promotionResult = await this.evaluatePromotions({
+      storeId,
+      subtotal,
+      items,
+      promoCode: dto.promoCode,
+      selectedPromotionIds: dto.selectedPromotionIds,
+    });
+    const totalDiscount = Decimal.min(subtotal, adjustmentResult.amount.plus(promotionResult.discountAmount)).toDecimalPlaces(2);
+    const discountedSubtotal = subtotal.minus(totalDiscount).toDecimalPlaces(2);
     const taxRate = toMoney(dto.taxRate ?? 0);
     const serviceChargeRate = toMoney(dto.serviceChargeRate ?? 0);
     const tax = dto.tax === undefined ? discountedSubtotal.mul(taxRate).div(100).toDecimalPlaces(2) : toMoney(dto.tax);
@@ -743,7 +772,11 @@ export class CheckoutService {
       currency: dto.currency ?? products[0]?.currency ?? 'USD',
       orderType: (dto.orderType ?? OrderType.TAKEAWAY) as OrderType,
       subtotal,
-      adjustment: adjustmentResult.amount,
+      adjustment: totalDiscount,
+      promotionDiscountAmount: promotionResult.discountAmount,
+      manualDiscountAmount: adjustmentResult.amount,
+      totalDiscountAmount: totalDiscount,
+      appliedPromotions: promotionResult.appliedPromotions,
       adjustmentType: dto.adjustment?.type,
       adjustmentValue: dto.adjustment ? toMoney(dto.adjustment.value) : undefined,
       discountReason: dto.adjustment?.reason,
@@ -755,6 +788,76 @@ export class CheckoutService {
       total,
       items,
     };
+  }
+
+  private async evaluatePromotions(input: {
+    storeId: string;
+    subtotal: Decimal;
+    items: Array<{ productId: string; productCategorySnapshot: string | null; lineTotal: Decimal }>;
+    promoCode?: string;
+    selectedPromotionIds?: string[];
+  }) {
+    if (!('campaign' in this.prisma) || !this.prisma.campaign) {
+      return { discountAmount: new Decimal(0), appliedPromotions: [] };
+    }
+    const now = new Date();
+    const normalizedCode = input.promoCode?.trim().toUpperCase();
+    const campaigns = await this.prisma.campaign.findMany({
+      where: {
+        storeId: input.storeId,
+        status: CampaignStatus.ACTIVE,
+        AND: [
+          { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
+          { OR: [{ endsAt: null }, { endsAt: { gte: now } }] },
+        ],
+      },
+      orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
+      take: 100,
+    });
+    const selected = new Set(input.selectedPromotionIds ?? []);
+    const candidates = campaigns
+      .filter((campaign) => !campaign.usageLimit || campaign.usageCount < campaign.usageLimit)
+      .filter((campaign) => selected.size === 0 || selected.has(campaign.id) || campaign.promoCode?.toUpperCase() === normalizedCode)
+      .filter((campaign) => campaign.type !== CampaignType.PROMO_CODE || (normalizedCode && campaign.promoCode?.toUpperCase() === normalizedCode));
+    const discounts = candidates
+      .map((campaign) => this.calculatePromotionDiscount(campaign, input))
+      .filter((result) => result.discountAmount.greaterThan(0));
+    if (discounts.length === 0) {
+      return { discountAmount: new Decimal(0), appliedPromotions: [] };
+    }
+    const bestOnly = discounts.some((result) => result.campaign.stackingPolicy === PromotionStackingPolicy.BEST_ONLY || result.campaign.stackingPolicy === PromotionStackingPolicy.EXCLUSIVE);
+    const applied = bestOnly ? [discounts.sort((a, b) => b.discountAmount.comparedTo(a.discountAmount))[0]] : discounts;
+    const discountAmount = Decimal.min(input.subtotal, applied.reduce((sum, result) => sum.plus(result.discountAmount), new Decimal(0))).toDecimalPlaces(2);
+    return {
+      discountAmount,
+      appliedPromotions: applied.map((result) => ({
+        id: result.campaign.id,
+        name: result.campaign.name,
+        type: result.campaign.type,
+        promoCode: result.campaign.promoCode,
+        discountAmount: toMoneyNumber(result.discountAmount),
+      })),
+    };
+  }
+
+  private calculatePromotionDiscount(campaign: Campaign, input: { subtotal: Decimal; items: Array<{ productId: string; productCategorySnapshot: string | null; lineTotal: Decimal }> }) {
+    let base = input.subtotal;
+    if (campaign.type === CampaignType.THRESHOLD_DISCOUNT) {
+      if (!campaign.thresholdAmount || input.subtotal.lessThan(campaign.thresholdAmount)) return { campaign, discountAmount: new Decimal(0) };
+    }
+    if (campaign.type === CampaignType.ITEM_DISCOUNT) {
+      base = input.items
+        .filter((item) => (campaign.productId ? item.productId === campaign.productId : true) && (campaign.categoryName ? item.productCategorySnapshot === campaign.categoryName : true))
+        .reduce((sum, item) => sum.plus(item.lineTotal), new Decimal(0))
+        .toDecimalPlaces(2);
+      if (base.lessThanOrEqualTo(0)) return { campaign, discountAmount: new Decimal(0) };
+    }
+    const value = new Decimal(campaign.discountValue ?? 0);
+    const type = campaign.discountType ?? 'percentage';
+    const discountAmount = type === 'fixed_amount' || type === 'fixed_reduction'
+      ? value
+      : base.mul(value).div(100).toDecimalPlaces(2);
+    return { campaign, discountAmount: Decimal.min(base, discountAmount).toDecimalPlaces(2) };
   }
 
   private assertDiscountPermission(subtotal: Decimal, adjustment: CreateOrderDto['adjustment'], currentUser?: AuthRequestUser) {

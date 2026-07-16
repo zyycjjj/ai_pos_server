@@ -176,6 +176,21 @@ enum CampaignStatus {
   ACTIVE
   PAUSED
   ENDED
+  ARCHIVED
+}
+
+enum CampaignType {
+  ORDER_DISCOUNT
+  THRESHOLD_DISCOUNT
+  ITEM_DISCOUNT
+  PROMO_CODE
+  BUY_X_GET_Y
+}
+
+enum PromotionStackingPolicy {
+  BEST_ONLY
+  STACKABLE
+  EXCLUSIVE
 }
 
 enum CatalogStatus {
@@ -432,6 +447,10 @@ model Order {
   currency        String         @default("USD")
   subtotal        Decimal        @db.Decimal(10, 2)
   adjustment      Decimal        @default(0) @db.Decimal(10, 2)
+  promotionDiscountAmount Decimal @default(0) @db.Decimal(10, 2)
+  manualDiscountAmount Decimal    @default(0) @db.Decimal(10, 2)
+  totalDiscountAmount Decimal     @default(0) @db.Decimal(10, 2)
+  appliedPromotions Json?
   adjustmentType  String?
   adjustmentValue Decimal?       @db.Decimal(10, 2)
   discountReason  String?        @db.Text
@@ -812,8 +831,20 @@ model Campaign {
   name           String
   goal           String?
   status         CampaignStatus @default(DRAFT)
+  type           CampaignType   @default(ORDER_DISCOUNT)
+  stackingPolicy PromotionStackingPolicy @default(BEST_ONLY)
   discountType   String?
   discountValue  Float?
+  thresholdAmount Decimal?      @db.Decimal(10, 2)
+  promoCode      String?
+  productId      String?
+  categoryName   String?
+  startsAt       DateTime?
+  endsAt         DateTime?
+  priority       Int            @default(0)
+  usageLimit     Int?
+  usageCount     Int            @default(0)
+  discountTotal  Decimal        @default(0) @db.Decimal(10, 2)
   timeWindow     String?
   bannerCopy     String?
   staffMessage   String?
@@ -823,6 +854,8 @@ model Campaign {
   updatedAt      DateTime       @updatedAt
 
   @@index([storeId])
+  @@index([storeId, status])
+  @@index([storeId, promoCode])
   @@allow("all", true)
 }
 

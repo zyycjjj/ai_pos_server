@@ -50,6 +50,10 @@ export class ReceiptsService {
       totals: {
         subtotal: toMoneyNumber(order.subtotal),
         adjustment: toMoneyNumber(order.adjustment),
+        promotionDiscountAmount: toMoneyNumber(order.promotionDiscountAmount),
+        manualDiscountAmount: toMoneyNumber(order.manualDiscountAmount),
+        totalDiscountAmount: toMoneyNumber(order.totalDiscountAmount),
+        appliedPromotions: order.appliedPromotions ?? [],
         adjustmentType: order.adjustmentType,
         adjustmentValue: order.adjustmentValue === null ? null : toMoneyNumber(order.adjustmentValue),
         discountReason: order.discountReason,
