@@ -192,7 +192,10 @@ App API base 默认：web 使用 local，native 使用 `http://49.235.186.154:41
 
 ## 17. Commit / Push
 
-待最终 commit/push 回填。根目录不是 Git 仓库；server/admin/app 是独立 Git 仓库。`scripts/check-architecture-boundaries.mjs` 位于非 Git 根目录，无法随子仓库提交。
+- Server：`4da5458 docs(architecture): add whole project review and diagrams`，已 push 到 `develop`。
+- App：`97bb715 refactor(app): clarify POS printer boundaries`，已 push 到 `develop`。
+- Admin：无源码变更，无需提交。
+- 根目录不是 Git 仓库；server/admin/app 是独立 Git 仓库。`scripts/check-architecture-boundaries.mjs` 位于非 Git 根目录，已本地小修但无法随子仓库提交。
 
 ## 18. 下一步建议
 
