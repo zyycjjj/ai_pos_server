@@ -132,11 +132,15 @@ jobs:
 
       - name: Install, migrate, and restart
         run: |
+          BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           ssh -o BatchMode=yes -p "${SSH_PORT}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "set -e
              cd '${DEPLOY_PATH}'
              printf '%s\n' 'NODE_ENV=production' > .env
              printf 'PORT=%s\n' '${PORT}' >> .env
+             printf '%s\n' 'AI_POS_VERSION=0.1.0-preview' >> .env
+             printf '%s\n' 'AI_POS_COMMIT=${{ github.sha }}' >> .env
+             printf 'AI_POS_BUILD_TIME=%s\n' '${BUILD_TIME}' >> .env
              printf 'DATABASE_URL=%s\n' '${{ secrets.DATABASE_URL }}' >> .env
              printf 'DEEPSEEK_API_KEY=%s\n' '${{ secrets.DEEPSEEK_API_KEY }}' >> .env
              printf 'DEEPSEEK_BASE_URL=%s\n' '${DEEPSEEK_BASE_URL}' >> .env
@@ -154,7 +158,7 @@ jobs:
              fi
              command -v pnpm
              pnpm -v
-             pnpm install --frozen-lockfile
+             CI=true pnpm install --frozen-lockfile
              pnpm zen:generate:server
              pnpm prisma:push
              pnpm build
