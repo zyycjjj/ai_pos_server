@@ -8,7 +8,7 @@ import { CurrentUser } from '@/modules/auth/current-user.decorator';
 import type { AuthRequestUser } from '@/modules/auth/auth.types';
 
 import { CheckoutService } from './checkout.service';
-import { CreateOrderDto, HoldOrderDto, PayOrderDto } from './dto/create-order.dto';
+import { CheckoutPreviewDto, CreateOrderDto, HoldOrderDto, PayOrderDto } from './dto/create-order.dto';
 import { ListOrdersDto } from './dto/list-orders.dto';
 import { OrderReasonDto, RefundOrderDto, VoidOrderDto } from './dto/order-action.dto';
 
@@ -37,6 +37,13 @@ export class CheckoutController {
   @ApiOperation({ summary: 'Create an MVP checkout order from active products.' })
   createOrder(@Body() dto: CreateOrderDto, @CurrentUser() currentUser?: AuthRequestUser) {
     return this.checkoutService.createOrder(dto, currentUser);
+  }
+
+  @Post('preview')
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
+  @ApiOperation({ summary: 'Preview checkout pricing and promotion eligibility without creating an order.' })
+  preview(@Body() dto: CheckoutPreviewDto, @CurrentUser() currentUser?: AuthRequestUser) {
+    return this.checkoutService.preview(dto, currentUser);
   }
 
   @Post('orders/hold')

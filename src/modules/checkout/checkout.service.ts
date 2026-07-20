@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { ModifierOptionStatus, OrderAuditAction, OrderStatus, OrderType, PaymentMethod, PrintStatus, Prisma, ProductAvailabilityStatus, RefundStatus, StoreRole } from '@prisma/client';
+import { CustomerStatus, ModifierOptionStatus, OrderAuditAction, OrderStatus, OrderType, PaymentMethod, PrintStatus, Prisma, ProductAvailabilityStatus, RefundStatus, StoreRole } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
 import { multiplyMoney, toMoneyNumber } from '@/common/utils/money';
@@ -11,7 +11,7 @@ import { KitchenService } from '@/modules/kitchen/kitchen.service';
 import { PrintService } from '@/modules/print/print.service';
 import { ShiftsService } from '@/modules/shifts/shifts.service';
 
-import { CreateOrderDto, HoldOrderDto, PayOrderDto } from './dto/create-order.dto';
+import { CheckoutPreviewDto, CreateOrderDto, HoldOrderDto, PayOrderDto } from './dto/create-order.dto';
 import { ListOrdersDto } from './dto/list-orders.dto';
 import { OrderReasonDto, RefundOrderDto, VoidOrderDto } from './dto/order-action.dto';
 import { buildCheckoutPricing, calculateManualAdjustment } from './pricing/checkout-pricing';
@@ -95,6 +95,30 @@ export class CheckoutService {
     await this.printService?.createAutoJobsForOrder(order.id).catch(() => undefined);
 
     return presentOrder(order);
+  }
+
+  async preview(dto: CheckoutPreviewDto, currentUser?: AuthRequestUser) {
+    const storeId = this.getStoreId();
+    const customerLookup = await this.lookupCustomerForPreview(storeId, this.pickCustomerInput(dto));
+    const orderDraft = await this.buildOrderDraft(dto, currentUser, customerLookup.customer?.id, { includePreviewDetails: true });
+
+    return {
+      currency: orderDraft.currency,
+      orderType: orderDraft.orderType,
+      subtotal: toMoneyNumber(orderDraft.subtotal),
+      promotionDiscountAmount: toMoneyNumber(orderDraft.promotionDiscountAmount),
+      manualDiscountAmount: toMoneyNumber(orderDraft.manualDiscountAmount),
+      totalDiscountAmount: toMoneyNumber(orderDraft.totalDiscountAmount),
+      taxAmount: toMoneyNumber(orderDraft.tax),
+      serviceChargeAmount: toMoneyNumber(orderDraft.serviceCharge),
+      tipAmount: toMoneyNumber(orderDraft.tip),
+      total: toMoneyNumber(orderDraft.total),
+      customer: customerLookup.customer,
+      customerLookup: customerLookup.lookup,
+      appliedPromotions: orderDraft.appliedPromotions,
+      eligiblePromotions: orderDraft.eligiblePromotions ?? [],
+      rejectedPromotions: orderDraft.rejectedPromotions ?? [],
+    };
   }
 
   async holdOrder(dto: HoldOrderDto, currentUser?: AuthRequestUser) {
@@ -701,7 +725,12 @@ export class CheckoutService {
     return this.prisma.$transaction((tx) => this.customersService!.resolveOrderCustomer(tx, storeId, input));
   }
 
-  private async buildOrderDraft(dto: Pick<CreateOrderDto, 'items' | 'orderType' | 'currency' | 'adjustment' | 'tax' | 'taxRate' | 'serviceCharge' | 'serviceChargeRate' | 'tip' | 'promoCode' | 'selectedPromotionIds'>, currentUser?: AuthRequestUser, resolvedCustomerId?: string | null) {
+  private async buildOrderDraft(
+    dto: Pick<CreateOrderDto, 'items' | 'orderType' | 'currency' | 'adjustment' | 'tax' | 'taxRate' | 'serviceCharge' | 'serviceChargeRate' | 'tip' | 'promoCode' | 'selectedPromotionIds'>,
+    currentUser?: AuthRequestUser,
+    resolvedCustomerId?: string | null,
+    options: { includePreviewDetails?: boolean } = {},
+  ) {
     const storeId = this.getStoreId();
     const productIds = [...new Set(dto.items.map((item) => item.productId))];
     const products = await this.prisma.product.findMany({
@@ -747,6 +776,9 @@ export class CheckoutService {
       promoCode: dto.promoCode,
       selectedPromotionIds: dto.selectedPromotionIds,
       resolvedCustomerId,
+    }, {
+      includePreviewDetails: options.includePreviewDetails,
+      throwOnExplicitIneligible: !options.includePreviewDetails,
     });
     const pricing = buildCheckoutPricing({ ...dto, subtotal, promotionDiscountAmount: promotionResult.discountAmount });
 
@@ -759,6 +791,8 @@ export class CheckoutService {
       manualDiscountAmount: pricing.manualDiscountAmount,
       totalDiscountAmount: pricing.totalDiscountAmount,
       appliedPromotions: promotionResult.appliedPromotions,
+      eligiblePromotions: promotionResult.eligiblePromotions,
+      rejectedPromotions: promotionResult.rejectedPromotions,
       adjustmentType: pricing.adjustmentType,
       adjustmentValue: pricing.adjustmentValue,
       discountReason: pricing.discountReason,
@@ -769,6 +803,55 @@ export class CheckoutService {
       tip: pricing.tip,
       total: pricing.total,
       items,
+    };
+  }
+
+  private async lookupCustomerForPreview(storeId: string, input: { customerId?: string; customerPhone?: string; customerName?: string }) {
+    if (input.customerId) {
+      const customer = await this.prisma.customer.findFirst({ where: { id: input.customerId, storeId } });
+      if (!customer) {
+        throw new BadRequestException('Customer does not belong to the active store.');
+      }
+      if (customer.status === CustomerStatus.BLOCKED) {
+        throw new BadRequestException('Customer is blocked.');
+      }
+      return {
+        customer: {
+          id: customer.id,
+          phone: customer.phone,
+          name: customer.name,
+          pointsBalance: customer.pointsBalance,
+          orderCount: customer.orderCount,
+          totalSpend: toMoneyNumber(customer.totalSpend),
+          lastOrderAt: customer.lastOrderAt,
+        },
+        lookup: { found: true, normalizedPhone: customer.normalizedPhone },
+      };
+    }
+
+    const phone = input.customerPhone?.trim();
+    if (!phone || !this.customersService) {
+      return { customer: null, lookup: { found: false, normalizedPhone: phone ? null : undefined } };
+    }
+    const normalizedPhone = this.customersService.normalizePhone(phone);
+    const customer = await this.prisma.customer.findUnique({ where: { storeId_normalizedPhone: { storeId, normalizedPhone } } });
+    if (!customer) {
+      return { customer: null, lookup: { found: false, normalizedPhone } };
+    }
+    if (customer.status === CustomerStatus.BLOCKED) {
+      throw new BadRequestException('Customer is blocked.');
+    }
+    return {
+      customer: {
+        id: customer.id,
+        phone: customer.phone,
+        name: customer.name,
+        pointsBalance: customer.pointsBalance,
+        orderCount: customer.orderCount,
+        totalSpend: toMoneyNumber(customer.totalSpend),
+        lastOrderAt: customer.lastOrderAt,
+      },
+      lookup: { found: true, normalizedPhone },
     };
   }
 

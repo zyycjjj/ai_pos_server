@@ -459,6 +459,8 @@ export class AdminService {
       promoCode: campaign.promoCode,
       productId: campaign.productId,
       categoryName: campaign.categoryName,
+      startsAt: campaign.startsAt?.toISOString() ?? null,
+      endsAt: campaign.endsAt?.toISOString() ?? null,
       customerEligibilityMode: campaign.customerEligibilityMode,
       targetCustomerSegmentId: campaign.targetCustomerSegmentId,
       stackingPolicy: campaign.stackingPolicy,
@@ -475,6 +477,7 @@ export class AdminService {
   async createCampaign(dto: UpsertCampaignDto) {
     const storeId = this.storeContext.getStoreId();
     await this.assertCampaignCustomerTarget(storeId, dto);
+    const validPeriod = this.parseCampaignValidPeriod(dto);
     const campaign = await this.prisma.campaign.create({
       data: {
         storeId,
@@ -488,6 +491,8 @@ export class AdminService {
         promoCode: dto.promoCode?.trim().toUpperCase(),
         productId: dto.productId,
         categoryName: dto.categoryName,
+        startsAt: validPeriod.startsAt,
+        endsAt: validPeriod.endsAt,
         customerEligibilityMode: (dto.customerEligibilityMode ?? CustomerEligibilityMode.ALL_CUSTOMERS) as CustomerEligibilityMode,
         targetCustomerSegmentId: dto.customerEligibilityMode === CustomerEligibilityMode.SEGMENT_ONLY ? dto.targetCustomerSegmentId : null,
         stackingPolicy: (dto.stackingPolicy ?? PromotionStackingPolicy.BEST_ONLY) as PromotionStackingPolicy,
@@ -502,6 +507,7 @@ export class AdminService {
   async updateCampaign(id: string, dto: UpsertCampaignDto) {
     const campaign = await this.findCampaign(id);
     await this.assertCampaignCustomerTarget(campaign.storeId, dto);
+    const validPeriod = this.parseCampaignValidPeriod(dto);
     await this.prisma.campaign.update({
       where: { id },
       data: {
@@ -514,6 +520,8 @@ export class AdminService {
         promoCode: dto.promoCode?.trim().toUpperCase(),
         productId: dto.productId,
         categoryName: dto.categoryName,
+        startsAt: validPeriod.startsAt,
+        endsAt: validPeriod.endsAt,
         customerEligibilityMode: (dto.customerEligibilityMode ?? CustomerEligibilityMode.ALL_CUSTOMERS) as CustomerEligibilityMode,
         targetCustomerSegmentId: dto.customerEligibilityMode === CustomerEligibilityMode.SEGMENT_ONLY ? dto.targetCustomerSegmentId : null,
         stackingPolicy: (dto.stackingPolicy ?? PromotionStackingPolicy.BEST_ONLY) as PromotionStackingPolicy,
@@ -543,6 +551,8 @@ export class AdminService {
       promoCode: campaign.promoCode,
       productId: campaign.productId,
       categoryName: campaign.categoryName,
+      startsAt: campaign.startsAt?.toISOString() ?? null,
+      endsAt: campaign.endsAt?.toISOString() ?? null,
       customerEligibilityMode: campaign.customerEligibilityMode,
       targetCustomerSegmentId: campaign.targetCustomerSegmentId,
       stackingPolicy: campaign.stackingPolicy,
@@ -575,6 +585,15 @@ export class AdminService {
         throw new BadRequestException('Target customer segment does not belong to the active store.');
       }
     }
+  }
+
+  private parseCampaignValidPeriod(dto: Pick<UpsertCampaignDto, 'startsAt' | 'endsAt'>) {
+    const startsAt = dto.startsAt ? new Date(dto.startsAt) : null;
+    const endsAt = dto.endsAt ? new Date(dto.endsAt) : null;
+    if (startsAt && endsAt && endsAt <= startsAt) {
+      throw new BadRequestException('Campaign endsAt must be later than startsAt.');
+    }
+    return { startsAt, endsAt };
   }
 
   async listAiDrafts() {

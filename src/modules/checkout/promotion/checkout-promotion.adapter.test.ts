@@ -46,6 +46,27 @@ describe('customer-targeted checkout promotions', () => {
 
     assert.equal(result.discountAmount.toNumber(), 10);
   });
+
+  it('returns preview applied, eligible, and rejected promotion details without throwing', async () => {
+    const source = sourceFor([
+      campaign({ id: 'vip', customerEligibilityMode: CustomerEligibilityMode.SEGMENT_ONLY, targetCustomerSegmentId: 'segment-vip', promoCode: 'VIP10' }),
+      campaign({ id: 'threshold', type: CampaignType.THRESHOLD_DISCOUNT, promoCode: null, thresholdAmount: new Decimal(150) }),
+      campaign({ id: 'auto', type: CampaignType.ORDER_DISCOUNT, promoCode: null, discountValue: 5 }),
+    ], []);
+    const result = await evaluateCheckoutPromotions(source, {
+      storeId: 'store-1',
+      subtotal: new Decimal(100),
+      items: [],
+      promoCode: 'VIP10',
+      resolvedCustomerId: 'customer-normal',
+    }, { includePreviewDetails: true, throwOnExplicitIneligible: false });
+
+    assert.equal(result.discountAmount.toNumber(), 5);
+    assert.equal(result.appliedPromotions[0].campaignId, 'auto');
+    assert.equal(result.eligiblePromotions?.some((promotion) => promotion.campaignId === 'auto'), true);
+    assert.equal(result.rejectedPromotions?.some((promotion) => promotion.campaignId === 'vip' && promotion.reasonCode === 'PROMO_CODE_NOT_ELIGIBLE_FOR_CUSTOMER'), true);
+    assert.equal(result.rejectedPromotions?.some((promotion) => promotion.campaignId === 'threshold' && promotion.reasonCode === 'ORDER_THRESHOLD_NOT_MET'), true);
+  });
 });
 
 function sourceFor(campaigns: ReturnType<typeof campaign>[], segmentIds: string[]) {
@@ -81,7 +102,7 @@ function baseCampaign() {
     categoryName: null,
     customerEligibilityMode: CustomerEligibilityMode.ALL_CUSTOMERS,
     targetCustomerSegmentId: null,
-    targetCustomerSegment: { status: CustomerSegmentStatus.ACTIVE },
+    targetCustomerSegment: { name: 'VIP Segment', status: CustomerSegmentStatus.ACTIVE },
     startsAt: null,
     endsAt: null,
     priority: 0,

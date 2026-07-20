@@ -100,6 +100,46 @@ describe('CheckoutService', () => {
     assert.match(order.orderNumber, /^POS-\d{14}-[A-Z0-9]{4}$/);
   });
 
+  it('previews checkout totals without creating an order or payment side effects', async () => {
+    const createdAt = new Date('2026-05-20T05:31:25.329Z');
+    let orderCreateCalled = false;
+    const prisma = {
+      product: {
+        findMany: async () => [
+          {
+            id: 'espresso',
+            name: 'Espresso',
+            category: 'Coffee',
+            price: new Decimal('5.00'),
+            currency: 'USD',
+            isActive: true,
+            modifierGroups: [],
+            createdAt,
+            updatedAt: createdAt,
+          },
+        ],
+      },
+      order: {
+        create: async () => {
+          orderCreateCalled = true;
+          throw new Error('Preview must not create orders.');
+        },
+      },
+    };
+
+    const service = new CheckoutService(prisma as any);
+    const preview = await service.preview({
+      items: [{ productId: 'espresso', quantity: 2 }],
+      tax: 0,
+      currency: 'USD',
+    });
+
+    assert.equal(preview.subtotal, 10);
+    assert.equal(preview.total, 10);
+    assert.equal(preview.appliedPromotions.length, 0);
+    assert.equal(orderCreateCalled, false);
+  });
+
   it('applies selected modifier price deltas to line totals', async () => {
     const createdAt = new Date('2026-05-20T05:31:25.329Z');
     const products = [

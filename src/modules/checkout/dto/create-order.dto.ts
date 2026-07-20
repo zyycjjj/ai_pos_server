@@ -170,6 +170,97 @@ export class CreateOrderDto {
   currency?: string;
 }
 
+export class CheckoutPreviewDto {
+  @ApiPropertyOptional({ enum: ['DINE_IN', 'TAKEAWAY', 'PICKUP'], default: 'TAKEAWAY' })
+  @IsOptional()
+  @IsString()
+  @IsIn(['DINE_IN', 'TAKEAWAY', 'PICKUP'])
+  orderType?: 'DINE_IN' | 'TAKEAWAY' | 'PICKUP';
+
+  @ApiProperty({ type: [CreateOrderItemDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreateOrderItemDto)
+  items: CreateOrderItemDto[];
+
+  @ApiPropertyOptional({ default: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  tax?: number;
+
+  @ApiPropertyOptional({ default: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  taxRate?: number;
+
+  @ApiPropertyOptional({ default: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  serviceChargeRate?: number;
+
+  @ApiPropertyOptional({ default: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  serviceCharge?: number;
+
+  @ApiPropertyOptional({ default: 0 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  tip?: number;
+
+  @ApiPropertyOptional({ type: CreateOrderAdjustmentDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => CreateOrderAdjustmentDto)
+  adjustment?: CreateOrderAdjustmentDto;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  promoCode?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  customerId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  customerPhone?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  customerName?: string;
+
+  @ApiPropertyOptional({ type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  selectedPromotionIds?: string[];
+
+  @ApiPropertyOptional({ default: 'USD' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(8)
+  currency?: string;
+}
+
 export class HoldOrderDto {
   @ApiProperty({ type: [CreateOrderItemDto] })
   @IsArray()

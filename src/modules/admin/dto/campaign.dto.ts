@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsIn, IsInt, IsISO8601, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export class UpsertCampaignDto {
   @ApiProperty()
@@ -37,6 +37,16 @@ export class UpsertCampaignDto {
   @IsNumber()
   @Min(0)
   thresholdAmount?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsISO8601()
+  startsAt?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsISO8601()
+  endsAt?: string;
 
   @ApiPropertyOptional()
   @IsOptional()
