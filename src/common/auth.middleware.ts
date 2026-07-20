@@ -87,6 +87,7 @@ export class AuthMiddleware implements NestMiddleware {
     const url = req.originalUrl ?? req.url;
     return (
       url === '/api/health' ||
+      url === '/api/version' ||
       url.startsWith('/api/docs') ||
       url === '/api/auth/login' ||
       url === '/api/auth/register-store'

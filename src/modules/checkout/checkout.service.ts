@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { Campaign, CampaignStatus, CampaignType, ModifierOptionStatus, OrderAuditAction, OrderStatus, OrderType, PaymentMethod, PrintStatus, Prisma, ProductAvailabilityStatus, PromotionStackingPolicy, RefundStatus, StoreRole } from '@prisma/client';
+import { ModifierOptionStatus, OrderAuditAction, OrderStatus, OrderType, PaymentMethod, PrintStatus, Prisma, ProductAvailabilityStatus, RefundStatus, StoreRole } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
-import { multiplyMoney, toMoney, toMoneyNumber } from '@/common/utils/money';
+import { multiplyMoney, toMoneyNumber } from '@/common/utils/money';
 import { presentOrder } from '@/common/utils/order-presenter';
 import { StoreContextService } from '@/common/store-context.service';
 import { PrismaService } from '@/prisma/prisma.service';
@@ -13,6 +13,10 @@ import { ShiftsService } from '@/modules/shifts/shifts.service';
 import { CreateOrderDto, HoldOrderDto, PayOrderDto } from './dto/create-order.dto';
 import { ListOrdersDto } from './dto/list-orders.dto';
 import { OrderReasonDto, RefundOrderDto, VoidOrderDto } from './dto/order-action.dto';
+import { buildCheckoutPricing, calculateManualAdjustment } from './pricing/checkout-pricing';
+import { validatePaymentLines, type PaymentValidationResult } from './payments/payment-lines.validator';
+import { buildRefundPlan, getRefundedAmount, resolveRefundedStatus } from './refund/refund-amount-calculator';
+import { evaluateCheckoutPromotions } from './promotion/checkout-promotion.adapter';
 import type { AuthRequestUser } from '../auth/auth.types';
 
 type ProductWithModifiers = Prisma.ProductGetPayload<{
@@ -72,7 +76,7 @@ export class CheckoutService {
     const activeShift = await this.resolveCheckoutShift(currentUser);
     const orderDraft = await this.buildOrderDraft(dto, currentUser);
     const total = orderDraft.total;
-    const paymentResult = this.resolvePayments(dto.payments, total);
+    const paymentResult = validatePaymentLines(dto.payments, total);
 
     const order = await this.createPaidOrderWithRetry({
       ...orderDraft,
@@ -196,7 +200,7 @@ export class CheckoutService {
       throw new BadRequestException('Only open orders can be paid.');
     }
     const activeShift = await this.resolveCheckoutShift(currentUser);
-    const paymentResult = this.resolvePayments(dto.payments, order.total);
+    const paymentResult = validatePaymentLines(dto.payments, order.total);
     const updated = await this.prisma.$transaction(
       async (tx) => {
         const paid = await tx.order.update({
@@ -295,7 +299,7 @@ export class CheckoutService {
     if (order.status !== OrderStatus.OPEN && order.status !== OrderStatus.PAID) {
       throw new BadRequestException('Only open or paid orders can be voided.');
     }
-    if (this.getRefundedAmount(order).greaterThan(0)) {
+    if (getRefundedAmount(order).greaterThan(0)) {
       throw new BadRequestException('Refunded orders cannot be voided.');
     }
 
@@ -350,8 +354,8 @@ export class CheckoutService {
       throw new BadRequestException('Only paid orders can be refunded.');
     }
 
-    const refundPlan = this.buildRefundPlan(order, dto);
-    const updatedStatus = this.resolveRefundedStatus(order, refundPlan.amount);
+    const refundPlan = buildRefundPlan(order, dto);
+    const updatedStatus = resolveRefundedStatus(order, refundPlan.amount);
     const refundNumber = this.createRefundNumber();
 
     const activeShift =
@@ -443,57 +447,6 @@ export class CheckoutService {
     return `REF-${timestamp}-${suffix}`;
   }
 
-  private buildRefundPlan(order: OrderWithLifecycle, dto: RefundOrderDto) {
-    // Refundable balance is derived from persisted refunds, not the POS request, so repeated or partial refunds cannot exceed the server-side paid order total.
-    const remainingOrderAmount = order.total.minus(this.getRefundedAmount(order)).toDecimalPlaces(2);
-    if (remainingOrderAmount.lessThanOrEqualTo(0)) {
-      throw new BadRequestException('Order has no refundable balance.');
-    }
-
-    if (dto.items?.length) {
-      const itemPlans = dto.items.map((item) => {
-        const orderItem = order.items.find((candidate) => candidate.id === item.orderItemId);
-        if (!orderItem) {
-          throw new BadRequestException(`Order item not found: ${item.orderItemId}`);
-        }
-        const alreadyRefundedQuantity = orderItem.refundItems.reduce((sum, refundItem) => sum + refundItem.quantity, 0);
-        const refundableQuantity = orderItem.quantity - alreadyRefundedQuantity;
-        if (item.quantity > refundableQuantity) {
-          throw new BadRequestException(`Refund quantity exceeds refundable quantity for item: ${item.orderItemId}`);
-        }
-        const amount = orderItem.lineTotal.div(orderItem.quantity).mul(item.quantity).toDecimalPlaces(2);
-        return {
-          orderItemId: item.orderItemId,
-          quantity: item.quantity,
-          amount,
-        };
-      });
-      const amount = itemPlans.reduce((sum, item) => sum.plus(item.amount), new Decimal(0)).toDecimalPlaces(2);
-      if (amount.greaterThan(remainingOrderAmount)) {
-        throw new BadRequestException('Refund amount exceeds refundable balance.');
-      }
-      return { amount, items: itemPlans };
-    }
-
-    const amount = dto.amount === undefined ? remainingOrderAmount : toMoney(dto.amount);
-    if (amount.greaterThan(remainingOrderAmount)) {
-      throw new BadRequestException('Refund amount exceeds refundable balance.');
-    }
-    return { amount, items: [] };
-  }
-
-  private resolveRefundedStatus(order: OrderWithLifecycle, newRefundAmount: Decimal) {
-    const refundedAmount = this.getRefundedAmount(order).plus(newRefundAmount).toDecimalPlaces(2);
-    if (refundedAmount.greaterThanOrEqualTo(order.total)) {
-      return OrderStatus.REFUNDED;
-    }
-    return OrderStatus.PARTIALLY_REFUNDED;
-  }
-
-  private getRefundedAmount(order: Pick<OrderWithLifecycle, 'refunds'>) {
-    return order.refunds.reduce((sum, refund) => sum.plus(refund.amount), new Decimal(0)).toDecimalPlaces(2);
-  }
-
   private assertManagerApproval(currentUser?: AuthRequestUser) {
     if (!currentUser || (currentUser.role !== StoreRole.OWNER && currentUser.role !== StoreRole.MANAGER)) {
       throw new BadRequestException('Manager approval is required.');
@@ -574,7 +527,7 @@ export class CheckoutService {
     serviceCharge: Decimal;
     tip: Decimal;
     total: Decimal;
-    paymentResult: ReturnType<CheckoutService['resolvePayments']>;
+    paymentResult: PaymentValidationResult;
     shiftId?: string;
     createdByUserId?: string;
     items: Array<{
@@ -678,43 +631,7 @@ export class CheckoutService {
     throw new BadRequestException('Unable to create order.');
   }
 
-  private calculateAdjustment(subtotal: Decimal, adjustment: CreateOrderDto['adjustment']) {
-    if (!adjustment) {
-      return { amount: new Decimal(0) };
-    }
-
-    const value = toMoney(adjustment.value);
-    let amount: Decimal;
-    switch (adjustment.type) {
-      case 'discount':
-      case 'percentage_discount':
-        if (value.lessThan(0) || value.greaterThan(100)) {
-          throw new BadRequestException('Discount must be between 0 and 100.');
-        }
-        amount = subtotal.mul(value).div(100).toDecimalPlaces(2);
-        break;
-      case 'fixed_reduction':
-        amount = value.toDecimalPlaces(2);
-        break;
-      case 'price_override':
-        amount = subtotal.minus(value).toDecimalPlaces(2);
-        break;
-      default:
-        amount = new Decimal(0);
-    }
-
-    if (amount.lessThan(0)) {
-      throw new BadRequestException('Adjustment cannot increase the order total.');
-    }
-    if (amount.greaterThan(subtotal)) {
-      throw new BadRequestException('Adjustment cannot exceed subtotal.');
-    }
-
-    return { amount: amount.toDecimalPlaces(2) };
-  }
-
   private async buildOrderDraft(dto: Pick<CreateOrderDto, 'items' | 'orderType' | 'currency' | 'adjustment' | 'tax' | 'taxRate' | 'serviceCharge' | 'serviceChargeRate' | 'tip' | 'promoCode' | 'selectedPromotionIds'>, currentUser?: AuthRequestUser) {
-    // This is the trusted pricing boundary: product prices, modifier deltas, discounts, promotion snapshots, tax, service charge, and tip are recomputed against active store data before persistence.
     const storeId = this.getStoreId();
     const productIds = [...new Set(dto.items.map((item) => item.productId))];
     const products = await this.prisma.product.findMany({
@@ -753,119 +670,40 @@ export class CheckoutService {
 
     const subtotal = items.reduce((sum, item) => sum.plus(item.lineTotal), new Decimal(0)).toDecimalPlaces(2);
     this.assertDiscountPermission(subtotal, dto.adjustment, currentUser);
-    const adjustmentResult = this.calculateAdjustment(subtotal, dto.adjustment);
-    const promotionResult = await this.evaluatePromotions({
+    const promotionResult = await evaluateCheckoutPromotions(this.prisma.campaign, {
       storeId,
       subtotal,
       items,
       promoCode: dto.promoCode,
       selectedPromotionIds: dto.selectedPromotionIds,
     });
-    const totalDiscount = Decimal.min(subtotal, adjustmentResult.amount.plus(promotionResult.discountAmount)).toDecimalPlaces(2);
-    const discountedSubtotal = subtotal.minus(totalDiscount).toDecimalPlaces(2);
-    const taxRate = toMoney(dto.taxRate ?? 0);
-    const serviceChargeRate = toMoney(dto.serviceChargeRate ?? 0);
-    const tax = dto.tax === undefined ? discountedSubtotal.mul(taxRate).div(100).toDecimalPlaces(2) : toMoney(dto.tax);
-    const serviceCharge = dto.serviceCharge === undefined ? discountedSubtotal.mul(serviceChargeRate).div(100).toDecimalPlaces(2) : toMoney(dto.serviceCharge);
-    const tip = toMoney(dto.tip ?? 0);
-    const total = discountedSubtotal.plus(tax).plus(serviceCharge).plus(tip).toDecimalPlaces(2);
+    const pricing = buildCheckoutPricing({ ...dto, subtotal, promotionDiscountAmount: promotionResult.discountAmount });
 
     return {
       currency: dto.currency ?? products[0]?.currency ?? 'USD',
       orderType: (dto.orderType ?? OrderType.TAKEAWAY) as OrderType,
       subtotal,
-      adjustment: totalDiscount,
-      promotionDiscountAmount: promotionResult.discountAmount,
-      manualDiscountAmount: adjustmentResult.amount,
-      totalDiscountAmount: totalDiscount,
+      adjustment: pricing.adjustment,
+      promotionDiscountAmount: pricing.promotionDiscountAmount,
+      manualDiscountAmount: pricing.manualDiscountAmount,
+      totalDiscountAmount: pricing.totalDiscountAmount,
       appliedPromotions: promotionResult.appliedPromotions,
-      adjustmentType: dto.adjustment?.type,
-      adjustmentValue: dto.adjustment ? toMoney(dto.adjustment.value) : undefined,
-      discountReason: dto.adjustment?.reason,
-      taxRate,
-      tax,
-      serviceChargeRate,
-      serviceCharge,
-      tip,
-      total,
+      adjustmentType: pricing.adjustmentType,
+      adjustmentValue: pricing.adjustmentValue,
+      discountReason: pricing.discountReason,
+      taxRate: pricing.taxRate,
+      tax: pricing.tax,
+      serviceChargeRate: pricing.serviceChargeRate,
+      serviceCharge: pricing.serviceCharge,
+      tip: pricing.tip,
+      total: pricing.total,
       items,
     };
   }
 
-  private async evaluatePromotions(input: {
-    storeId: string;
-    subtotal: Decimal;
-    items: Array<{ productId: string; productCategorySnapshot: string | null; lineTotal: Decimal }>;
-    promoCode?: string;
-    selectedPromotionIds?: string[];
-  }) {
-    // Promotion evaluation is intentionally inside checkout so active campaigns, usage limits, stacking, and persisted discount snapshots share the same store-scoped transaction path.
-    if (!('campaign' in this.prisma) || !this.prisma.campaign) {
-      return { discountAmount: new Decimal(0), appliedPromotions: [] };
-    }
-    const now = new Date();
-    const normalizedCode = input.promoCode?.trim().toUpperCase();
-    const campaigns = await this.prisma.campaign.findMany({
-      where: {
-        storeId: input.storeId,
-        status: CampaignStatus.ACTIVE,
-        AND: [
-          { OR: [{ startsAt: null }, { startsAt: { lte: now } }] },
-          { OR: [{ endsAt: null }, { endsAt: { gte: now } }] },
-        ],
-      },
-      orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
-      take: 100,
-    });
-    const selected = new Set(input.selectedPromotionIds ?? []);
-    const candidates = campaigns
-      .filter((campaign) => !campaign.usageLimit || campaign.usageCount < campaign.usageLimit)
-      .filter((campaign) => selected.size === 0 || selected.has(campaign.id) || campaign.promoCode?.toUpperCase() === normalizedCode)
-      .filter((campaign) => campaign.type !== CampaignType.PROMO_CODE || (normalizedCode && campaign.promoCode?.toUpperCase() === normalizedCode));
-    const discounts = candidates
-      .map((campaign) => this.calculatePromotionDiscount(campaign, input))
-      .filter((result) => result.discountAmount.greaterThan(0));
-    if (discounts.length === 0) {
-      return { discountAmount: new Decimal(0), appliedPromotions: [] };
-    }
-    const bestOnly = discounts.some((result) => result.campaign.stackingPolicy === PromotionStackingPolicy.BEST_ONLY || result.campaign.stackingPolicy === PromotionStackingPolicy.EXCLUSIVE);
-    const applied = bestOnly ? [discounts.sort((a, b) => b.discountAmount.comparedTo(a.discountAmount))[0]] : discounts;
-    const discountAmount = Decimal.min(input.subtotal, applied.reduce((sum, result) => sum.plus(result.discountAmount), new Decimal(0))).toDecimalPlaces(2);
-    return {
-      discountAmount,
-      appliedPromotions: applied.map((result) => ({
-        id: result.campaign.id,
-        name: result.campaign.name,
-        type: result.campaign.type,
-        promoCode: result.campaign.promoCode,
-        discountAmount: toMoneyNumber(result.discountAmount),
-      })),
-    };
-  }
-
-  private calculatePromotionDiscount(campaign: Campaign, input: { subtotal: Decimal; items: Array<{ productId: string; productCategorySnapshot: string | null; lineTotal: Decimal }> }) {
-    let base = input.subtotal;
-    if (campaign.type === CampaignType.THRESHOLD_DISCOUNT) {
-      if (!campaign.thresholdAmount || input.subtotal.lessThan(campaign.thresholdAmount)) return { campaign, discountAmount: new Decimal(0) };
-    }
-    if (campaign.type === CampaignType.ITEM_DISCOUNT) {
-      base = input.items
-        .filter((item) => (campaign.productId ? item.productId === campaign.productId : true) && (campaign.categoryName ? item.productCategorySnapshot === campaign.categoryName : true))
-        .reduce((sum, item) => sum.plus(item.lineTotal), new Decimal(0))
-        .toDecimalPlaces(2);
-      if (base.lessThanOrEqualTo(0)) return { campaign, discountAmount: new Decimal(0) };
-    }
-    const value = new Decimal(campaign.discountValue ?? 0);
-    const type = campaign.discountType ?? 'percentage';
-    const discountAmount = type === 'fixed_amount' || type === 'fixed_reduction'
-      ? value
-      : base.mul(value).div(100).toDecimalPlaces(2);
-    return { campaign, discountAmount: Decimal.min(base, discountAmount).toDecimalPlaces(2) };
-  }
-
   private assertDiscountPermission(subtotal: Decimal, adjustment: CreateOrderDto['adjustment'], currentUser?: AuthRequestUser) {
     if (!adjustment) return;
-    const result = this.calculateAdjustment(subtotal, adjustment);
+    const result = calculateManualAdjustment(subtotal, adjustment);
     const ratio = subtotal.equals(0) ? new Decimal(0) : result.amount.div(subtotal).mul(100);
     if (ratio.greaterThan(30) && currentUser?.role !== StoreRole.OWNER && currentUser?.role !== StoreRole.MANAGER) {
       throw new BadRequestException({
@@ -873,54 +711,6 @@ export class CheckoutService {
         message: 'Manager approval is required for discounts above 30%.',
       });
     }
-  }
-
-  private resolvePayments(payments: CreateOrderDto['payments'], total: Decimal) {
-    if (!payments || payments.length === 0) {
-      throw new BadRequestException('At least one payment line is required.');
-    }
-
-    const lines = payments.map((payment) => {
-      const method = payment.method as PaymentMethod;
-      const amount = toMoney(payment.amount);
-      if (amount.lessThanOrEqualTo(0)) {
-        throw new BadRequestException('Payment amount must be greater than zero.');
-      }
-
-      if (method !== PaymentMethod.CASH) {
-        return {
-          method,
-          amount,
-          amountReceived: undefined,
-          changeDue: undefined,
-        };
-      }
-
-      const amountReceived = toMoney(payment.amountReceived ?? 0);
-      if (amountReceived.lessThan(amount)) {
-        throw new BadRequestException('Cash received is less than cash payment amount.');
-      }
-
-      return {
-        method,
-        amount,
-        amountReceived,
-        changeDue: amountReceived.minus(amount).toDecimalPlaces(2),
-      };
-    });
-
-    const paidAmount = lines.reduce((sum, line) => sum.plus(line.amount), new Decimal(0)).toDecimalPlaces(2);
-    if (!paidAmount.equals(total)) {
-      throw new BadRequestException('Payment lines must equal order total.');
-    }
-
-    const cashLines = lines.filter((line) => line.method === PaymentMethod.CASH);
-    return {
-      lines,
-      summaryMethod: lines.length === 1 ? lines[0].method : PaymentMethod.MANUAL,
-      cashReceived: cashLines.reduce((sum, line) => sum.plus(line.amountReceived ?? 0), new Decimal(0)).toDecimalPlaces(2),
-      changeDue: cashLines.reduce((sum, line) => sum.plus(line.changeDue ?? 0), new Decimal(0)).toDecimalPlaces(2),
-    };
   }
 
   private resolveSelectedModifiers(product: ProductWithModifiers, selections: NonNullable<CreateOrderDto['items'][number]['modifiers']>) {
