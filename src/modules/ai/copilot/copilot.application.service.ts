@@ -71,6 +71,7 @@ export class CopilotApplicationService {
       contextHash,
     });
 
+    // Evidence is rebuilt from backend analytics after parsing so an LLM cannot smuggle unsupported numbers into the response.
     const evidence = buildBackendEvidence(analytics);
     let structured: CopilotStructuredResponse;
     let provider = 'fallback';

@@ -444,6 +444,7 @@ export class CheckoutService {
   }
 
   private buildRefundPlan(order: OrderWithLifecycle, dto: RefundOrderDto) {
+    // Refundable balance is derived from persisted refunds, not the POS request, so repeated or partial refunds cannot exceed the server-side paid order total.
     const remainingOrderAmount = order.total.minus(this.getRefundedAmount(order)).toDecimalPlaces(2);
     if (remainingOrderAmount.lessThanOrEqualTo(0)) {
       throw new BadRequestException('Order has no refundable balance.');
@@ -713,6 +714,7 @@ export class CheckoutService {
   }
 
   private async buildOrderDraft(dto: Pick<CreateOrderDto, 'items' | 'orderType' | 'currency' | 'adjustment' | 'tax' | 'taxRate' | 'serviceCharge' | 'serviceChargeRate' | 'tip' | 'promoCode' | 'selectedPromotionIds'>, currentUser?: AuthRequestUser) {
+    // This is the trusted pricing boundary: product prices, modifier deltas, discounts, promotion snapshots, tax, service charge, and tip are recomputed against active store data before persistence.
     const storeId = this.getStoreId();
     const productIds = [...new Set(dto.items.map((item) => item.productId))];
     const products = await this.prisma.product.findMany({
@@ -797,6 +799,7 @@ export class CheckoutService {
     promoCode?: string;
     selectedPromotionIds?: string[];
   }) {
+    // Promotion evaluation is intentionally inside checkout so active campaigns, usage limits, stacking, and persisted discount snapshots share the same store-scoped transaction path.
     if (!('campaign' in this.prisma) || !this.prisma.campaign) {
       return { discountAmount: new Decimal(0), appliedPromotions: [] };
     }

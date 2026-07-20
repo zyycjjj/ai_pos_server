@@ -1,4 +1,5 @@
 export function compactAnalyticsContext<T extends Record<string, unknown>>(context: T): T {
+  // Keep AI context bounded and evidence-friendly: prompts get recent representative slices, while backend code remains the source of numeric truth.
   return {
     ...context,
     daily: Array.isArray(context.daily) ? context.daily.slice(-14) : context.daily,
@@ -12,4 +13,3 @@ export function compactAnalyticsContext<T extends Record<string, unknown>>(conte
     signals: Array.isArray(context.signals) ? context.signals.slice(0, 8) : context.signals,
   };
 }
-

@@ -205,6 +205,7 @@ export class TablesService {
     if (target.status !== DiningTableStatus.AVAILABLE && target.status !== DiningTableStatus.RESERVED) {
       throw new BadRequestException('Target table must be available or reserved.');
     }
+    // Transfer moves the single open order pointer atomically so source and target tables cannot both claim the same dine-in order.
     await this.prisma.$transaction(async (tx) => {
       await tx.order.update({ where: { id: order.id }, data: { tableId: target.id } });
       await tx.diningTable.update({ where: { id: source.id }, data: { status: DiningTableStatus.AVAILABLE, currentOrderId: null } });
@@ -233,6 +234,7 @@ export class TablesService {
     if (target.status !== DiningTableStatus.OCCUPIED || !targetOrder || targetOrder.status !== OrderStatus.OPEN) throw new BadRequestException('Target table must have an open order.');
     const sourceItems = sourceOrder.items.map((item) => this.cloneOrderItemData(item));
     const newSubtotal = this.sumItems([...targetOrder.items, ...sourceOrder.items]).toDecimalPlaces(2);
+    // Merge keeps the target order as the surviving bill and cancels the source order with audit records instead of deleting history.
     await this.prisma.$transaction(async (tx) => {
       await tx.order.update({
         where: { id: targetOrder.id },
@@ -284,6 +286,7 @@ export class TablesService {
     const splitItems = Array.from(selected.values()).map(({ item, quantity }) => this.cloneOrderItemData(item, quantity));
     const remainingSubtotal = remainingItems.reduce((sum, { item, quantity }) => sum.plus(multiplyMoney(item.unitPrice, quantity)), new Decimal(0)).toDecimalPlaces(2);
     const splitSubtotal = Array.from(selected.values()).reduce((sum, { item, quantity }) => sum.plus(multiplyMoney(item.unitPrice, quantity)), new Decimal(0)).toDecimalPlaces(2);
+    // Split bill creates a separate open order while leaving at least one item on the table order, preserving post-pay checkout state.
     const splitOrder = await this.prisma.$transaction(async (tx) => {
       for (const { item, quantity } of remainingItems) {
         await tx.orderItem.update({ where: { id: item.id }, data: { quantity, lineTotal: multiplyMoney(item.unitPrice, quantity) } });

@@ -283,6 +283,7 @@ export class ShiftsService {
       }
     }
 
+    // Expected cash is reconstructed from immutable cash movements so close-shift variance does not trust a client-supplied drawer total.
     const expectedCash = summary.openingCash
       .plus(summary.cashSales)
       .minus(summary.cashRefunds)
