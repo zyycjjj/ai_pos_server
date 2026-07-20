@@ -55,6 +55,10 @@ export class AnalyticsController {
   @ApiOperation({ summary: 'Read payment-line mix without double-counting split payments.' })
   payments(@Query() query: AnalyticsQueryDto) { return this.analytics.payments(query); }
 
+  @Get('customers')
+  @ApiOperation({ summary: 'Read customer repeat purchase and loyalty metrics.' })
+  customers(@Query() query: AnalyticsQueryDto) { return this.analytics.customers(query); }
+
   @Get('signals')
   @ApiOperation({ summary: 'Read deterministic operational insight signals.' })
   signals(@Query() query: AnalyticsQueryDto) { return this.analytics.signals(query); }
@@ -63,4 +67,3 @@ export class AnalyticsController {
   @ApiOperation({ summary: 'Read bounded, structured, store-isolated AI business context.' })
   aiContext(@Query() query: AnalyticsQueryDto) { return this.analytics.aiContext(query); }
 }
-

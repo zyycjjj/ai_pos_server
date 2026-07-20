@@ -6,6 +6,7 @@ import { multiplyMoney, toMoneyNumber } from '@/common/utils/money';
 import { presentOrder } from '@/common/utils/order-presenter';
 import { StoreContextService } from '@/common/store-context.service';
 import { PrismaService } from '@/prisma/prisma.service';
+import { CustomersService, type ResolvedOrderCustomer } from '@/modules/customers/customers.service';
 import { KitchenService } from '@/modules/kitchen/kitchen.service';
 import { PrintService } from '@/modules/print/print.service';
 import { ShiftsService } from '@/modules/shifts/shifts.service';
@@ -47,6 +48,7 @@ export class CheckoutService {
     private readonly shiftsService?: ShiftsService,
     private readonly kitchenService?: KitchenService,
     private readonly printService?: PrintService,
+    private readonly customersService?: CustomersService,
   ) {}
 
   async listOrders(query: ListOrdersDto) {
@@ -77,6 +79,7 @@ export class CheckoutService {
     const orderDraft = await this.buildOrderDraft(dto, currentUser);
     const total = orderDraft.total;
     const paymentResult = validatePaymentLines(dto.payments, total);
+    const customerInput = this.pickCustomerInput(dto);
 
     const order = await this.createPaidOrderWithRetry({
       ...orderDraft,
@@ -84,6 +87,7 @@ export class CheckoutService {
       storeId,
       shiftId: activeShift?.id,
       createdByUserId: currentUser?.id,
+      customerInput,
     });
 
     await this.printService?.createAutoJobsForOrder(order.id).catch(() => undefined);
@@ -96,12 +100,16 @@ export class CheckoutService {
     const orderDraft = await this.buildOrderDraft(dto, currentUser);
     const order = await this.prisma.$transaction(
       async (tx) => {
+        const customer = await this.customersService?.resolveOrderCustomer(tx, storeId, this.pickCustomerInput(dto));
         const pickupNumber = await this.createPickupNumber(tx);
         const created = await tx.order.create({
           data: {
             orderNumber: this.createOrderNumber(),
             storeId,
             pickupNumber,
+            customerId: customer?.customerId,
+            customerPhoneSnapshot: customer?.customerPhoneSnapshot,
+            customerNameSnapshot: customer?.customerNameSnapshot,
             orderType: orderDraft.orderType,
             status: OrderStatus.HELD,
             currency: orderDraft.currency,
@@ -203,10 +211,22 @@ export class CheckoutService {
     const paymentResult = validatePaymentLines(dto.payments, order.total);
     const updated = await this.prisma.$transaction(
       async (tx) => {
+        const customer =
+          (await this.customersService?.resolveOrderCustomer(tx, this.getStoreId(), this.pickCustomerInput(dto))) ??
+          (order.customerId
+            ? {
+                customerId: order.customerId,
+                customerPhoneSnapshot: order.customerPhoneSnapshot ?? '',
+                customerNameSnapshot: order.customerNameSnapshot,
+              }
+            : null);
         const paid = await tx.order.update({
           where: { id },
           data: {
             status: OrderStatus.PAID,
+            customerId: customer?.customerId,
+            customerPhoneSnapshot: customer?.customerPhoneSnapshot,
+            customerNameSnapshot: customer?.customerNameSnapshot,
             paymentMethod: paymentResult.summaryMethod,
             cashReceived: paymentResult.cashReceived,
             changeDue: paymentResult.changeDue,
@@ -224,7 +244,15 @@ export class CheckoutService {
             createdByUserId: currentUser?.id,
           });
         }
-        return paid;
+        await this.customersService?.recordPaidOrder(tx, {
+          storeId: this.getStoreId(),
+          customerId: customer?.customerId,
+          orderId: paid.id,
+          orderTotal: paid.total,
+          paidAt: paid.paidAt ?? new Date(),
+          createdByUserId: currentUser?.id,
+        });
+        return tx.order.findUniqueOrThrow({ where: { id: paid.id }, include: this.orderListInclude() });
       },
       { maxWait: 30000, timeout: 60000 },
     );
@@ -408,6 +436,13 @@ export class CheckoutService {
             createdByUserId: currentUser?.id,
           });
         }
+        await this.customersService?.recordRefundAdjustment(tx, {
+          storeId,
+          customerId: order.customerId,
+          orderId: order.id,
+          refundAmount: refundPlan.amount,
+          createdByUserId: currentUser?.id,
+        });
         if (updatedStatus === OrderStatus.REFUNDED) {
           await this.kitchenService?.cancelNewTicketsForOrder(tx, {
             storeId,
@@ -530,6 +565,12 @@ export class CheckoutService {
     paymentResult: PaymentValidationResult;
     shiftId?: string;
     createdByUserId?: string;
+    customerInput?: {
+      customerId?: string;
+      customerPhone?: string;
+      customerName?: string;
+    };
+    customer?: ResolvedOrderCustomer | null;
     items: Array<{
       productId: string;
       productNameSnapshot: string;
@@ -550,12 +591,16 @@ export class CheckoutService {
       try {
         return await this.prisma.$transaction(
           async (tx) => {
+            const customer = input.customer ?? (await this.customersService?.resolveOrderCustomer(tx, input.storeId, input.customerInput ?? {}));
             const pickupNumber = await this.createPickupNumber(tx);
             const order = await tx.order.create({
               data: {
                 orderNumber: this.createOrderNumber(),
                 storeId: input.storeId,
                 pickupNumber,
+                customerId: customer?.customerId,
+                customerPhoneSnapshot: customer?.customerPhoneSnapshot,
+                customerNameSnapshot: customer?.customerNameSnapshot,
                 orderType: input.orderType,
                 status: OrderStatus.PAID,
                 paymentMethod: input.paymentResult.summaryMethod,
@@ -601,18 +646,25 @@ export class CheckoutService {
                 createdByUserId: input.createdByUserId,
               });
             }
+            await this.customersService?.recordPaidOrder(tx, {
+              storeId: input.storeId,
+              customerId: customer?.customerId,
+              orderId: order.id,
+              orderTotal: order.total,
+              paidAt: order.paidAt ?? new Date(),
+              createdByUserId: input.createdByUserId,
+            });
             if (this.kitchenService) {
               await this.kitchenService.generateTicketsForOrder(tx, {
                 storeId: input.storeId,
                 orderId: order.id,
                 createdByUserId: input.createdByUserId,
               });
-              return tx.order.findUniqueOrThrow({
-                where: { id: order.id },
-                include: this.orderListInclude(),
-              });
             }
-            return order;
+            return tx.order.findUniqueOrThrow({
+              where: { id: order.id },
+              include: this.orderListInclude(),
+            });
           },
           {
             isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
@@ -629,6 +681,14 @@ export class CheckoutService {
     }
 
     throw new BadRequestException('Unable to create order.');
+  }
+
+  private pickCustomerInput(dto: Pick<CreateOrderDto, 'customerId' | 'customerPhone' | 'customerName'>) {
+    return {
+      customerId: dto.customerId,
+      customerPhone: dto.customerPhone,
+      customerName: dto.customerName,
+    };
   }
 
   private async buildOrderDraft(dto: Pick<CreateOrderDto, 'items' | 'orderType' | 'currency' | 'adjustment' | 'tax' | 'taxRate' | 'serviceCharge' | 'serviceChargeRate' | 'tip' | 'promoCode' | 'selectedPromotionIds'>, currentUser?: AuthRequestUser) {

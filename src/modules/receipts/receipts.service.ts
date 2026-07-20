@@ -14,7 +14,7 @@ export class ReceiptsService {
   async getReceiptForOrder(orderId: string) {
     const order = await this.prisma.order.findFirst({
       where: { id: orderId, storeId: this.getStoreId() },
-      include: { store: true, table: true, items: { include: { product: true } }, payments: true, refunds: { include: { items: true } } },
+      include: { store: true, table: true, customer: true, items: { include: { product: true } }, payments: true, refunds: { include: { items: true } } },
     });
     if (!order) {
       throw new NotFoundException('Order not found.');
@@ -40,6 +40,15 @@ export class ReceiptsService {
         printedAt: order.printedAt?.toISOString() ?? null,
       },
       currency: order.currency,
+      customer: order.customerId
+        ? {
+            id: order.customerId,
+            phone: order.customerPhoneSnapshot ?? order.customer?.phone ?? null,
+            name: order.customerNameSnapshot ?? order.customer?.name ?? null,
+            pointsEarned: order.loyaltyPointsEarned,
+            pointsBalance: order.loyaltyPointsBalanceAfter ?? order.customer?.pointsBalance ?? null,
+          }
+        : null,
       items: order.items.map((item) => ({
         name: item.productNameSnapshot ?? item.product.name,
         quantity: item.quantity,
@@ -130,6 +139,8 @@ export class ReceiptsService {
         pickupNumber: refund.order.pickupNumber,
         status: refund.order.status,
         paidAt: refund.order.paidAt?.toISOString() ?? null,
+        customerPhone: refund.order.customerPhoneSnapshot,
+        customerName: refund.order.customerNameSnapshot,
       },
       currency: refund.order.currency,
       items: refund.items.map((item) => ({

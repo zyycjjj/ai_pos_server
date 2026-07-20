@@ -226,62 +226,78 @@ enum AiExecutionStatus {
   FALLBACK
 }
 
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+enum LoyaltyPointLedgerType {
+  EARN
+  ADJUST
+  VOID
+  REFUND_ADJUST
+}
+
 model Store {
-  id                 String              @id() @default(cuid())
-  name               String
-  code               String?             @unique()
-  timezone           String              @default("Asia/Shanghai")
-  currency           String              @default("USD")
-  active             Boolean             @default(true)
-  users              StoreUser[]
-  categories         Category[]
-  diningAreas        DiningArea[]
-  diningTables       DiningTable[]
-  products           Product[]
-  orders             Order[]
-  refunds            Refund[]
-  auditLogs          OrderAuditLog[]
-  shifts             Shift[]
-  businessDays       BusinessDay[]
-  cashMovements      CashMovement[]
-  kitchenStations    KitchenStation[]
-  kitchenTickets     KitchenTicket[]
-  kitchenTicketItems KitchenTicketItem[]
-  printers           Printer[]
-  printerRoutes      PrinterRoute[]
-  printJobs          PrintJob[]
-  aiDrafts           AiDraft[]
-  campaigns          Campaign[]
-  aiConversations    AiConversation[]
-  aiMessages         AiMessage[]
-  aiExecutions       AiExecution[]
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt()
+  id                  String               @id() @default(cuid())
+  name                String
+  code                String?              @unique()
+  timezone            String               @default("Asia/Shanghai")
+  currency            String               @default("USD")
+  active              Boolean              @default(true)
+  users               StoreUser[]
+  categories          Category[]
+  diningAreas         DiningArea[]
+  diningTables        DiningTable[]
+  products            Product[]
+  orders              Order[]
+  refunds             Refund[]
+  auditLogs           OrderAuditLog[]
+  shifts              Shift[]
+  businessDays        BusinessDay[]
+  cashMovements       CashMovement[]
+  kitchenStations     KitchenStation[]
+  kitchenTickets      KitchenTicket[]
+  kitchenTicketItems  KitchenTicketItem[]
+  printers            Printer[]
+  printerRoutes       PrinterRoute[]
+  printJobs           PrintJob[]
+  aiDrafts            AiDraft[]
+  campaigns           Campaign[]
+  aiConversations     AiConversation[]
+  aiMessages          AiMessage[]
+  aiExecutions        AiExecution[]
+  customers           Customer[]
+  loyaltyPointLedgers LoyaltyPointLedger[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt()
 }
 
 model User {
-  id                     String           @id() @default(cuid())
-  email                  String           @unique()
-  name                   String?
-  passwordHash           String
-  active                 Boolean          @default(true)
-  stores                 StoreUser[]
-  operatedRefunds        Refund[]         @relation("RefundOperator")
-  approvedRefunds        Refund[]         @relation("RefundApprover")
-  operatedOrderAuditLogs OrderAuditLog[]  @relation("OrderAuditOperator")
-  approvedOrderAuditLogs OrderAuditLog[]  @relation("OrderAuditApprover")
-  shifts                 Shift[]          @relation("ShiftStaff")
-  openedShifts           Shift[]          @relation("ShiftOpenedBy")
-  closedShifts           Shift[]          @relation("ShiftClosedBy")
-  openedBusinessDays     BusinessDay[]    @relation("BusinessDayOpenedBy")
-  closedBusinessDays     BusinessDay[]    @relation("BusinessDayClosedBy")
-  cashMovements          CashMovement[]   @relation("CashMovementCreatedBy")
-  createdKitchenTickets  KitchenTicket[]  @relation("KitchenTicketCreatedBy")
-  requestedPrintJobs     PrintJob[]       @relation("PrintJobRequestedBy")
-  aiConversations        AiConversation[]
-  aiMessages             AiMessage[]
-  createdAt              DateTime         @default(now())
-  updatedAt              DateTime         @updatedAt()
+  id                         String               @id() @default(cuid())
+  email                      String               @unique()
+  name                       String?
+  passwordHash               String
+  active                     Boolean              @default(true)
+  stores                     StoreUser[]
+  operatedRefunds            Refund[]             @relation("RefundOperator")
+  approvedRefunds            Refund[]             @relation("RefundApprover")
+  operatedOrderAuditLogs     OrderAuditLog[]      @relation("OrderAuditOperator")
+  approvedOrderAuditLogs     OrderAuditLog[]      @relation("OrderAuditApprover")
+  shifts                     Shift[]              @relation("ShiftStaff")
+  openedShifts               Shift[]              @relation("ShiftOpenedBy")
+  closedShifts               Shift[]              @relation("ShiftClosedBy")
+  openedBusinessDays         BusinessDay[]        @relation("BusinessDayOpenedBy")
+  closedBusinessDays         BusinessDay[]        @relation("BusinessDayClosedBy")
+  cashMovements              CashMovement[]       @relation("CashMovementCreatedBy")
+  createdKitchenTickets      KitchenTicket[]      @relation("KitchenTicketCreatedBy")
+  requestedPrintJobs         PrintJob[]           @relation("PrintJobRequestedBy")
+  createdLoyaltyPointLedgers LoyaltyPointLedger[] @relation("LoyaltyPointLedgerCreatedBy")
+  aiConversations            AiConversation[]
+  aiMessages                 AiMessage[]
+  createdAt                  DateTime             @default(now())
+  updatedAt                  DateTime             @updatedAt()
 }
 
 model StoreUser {
@@ -410,55 +426,110 @@ model ProductModifierOption {
 }
 
 model Order {
-  id                      String          @id() @default(cuid())
-  storeId                 String?
-  store                   Store?          @relation(fields: [storeId], references: [id])
-  orderNumber             String          @unique()
-  pickupNumber            String?
-  orderType               OrderType       @default(TAKEAWAY)
-  tableId                 String?
-  table                   DiningTable?    @relation("OrderDiningTable", fields: [tableId], references: [id])
-  currentForTable         DiningTable?    @relation("CurrentTableOrder")
-  guestCount              Int?
-  status                  OrderStatus     @default(OPEN)
-  printStatus             PrintStatus     @default(NOT_PRINTED)
-  paymentMethod           PaymentMethod?
-  currency                String          @default("USD")
-  subtotal                Decimal         @db.Decimal(10, 2)
-  adjustment              Decimal         @default(0) @db.Decimal(10, 2)
-  promotionDiscountAmount Decimal         @default(0) @db.Decimal(10, 2)
-  manualDiscountAmount    Decimal         @default(0) @db.Decimal(10, 2)
-  totalDiscountAmount     Decimal         @default(0) @db.Decimal(10, 2)
-  appliedPromotions       Json?
-  adjustmentType          String?
-  adjustmentValue         Decimal?        @db.Decimal(10, 2)
-  discountReason          String?         @db.Text()
-  taxRate                 Decimal         @default(0) @db.Decimal(7, 4)
-  tax                     Decimal         @default(0) @db.Decimal(10, 2)
-  serviceChargeRate       Decimal         @default(0) @db.Decimal(7, 4)
-  serviceCharge           Decimal         @default(0) @db.Decimal(10, 2)
-  tip                     Decimal         @default(0) @db.Decimal(10, 2)
-  total                   Decimal         @db.Decimal(10, 2)
-  cashReceived            Decimal?        @db.Decimal(10, 2)
-  changeDue               Decimal?        @db.Decimal(10, 2)
-  paidAt                  DateTime?
-  printedAt               DateTime?
-  heldAt                  DateTime?
-  resumedAt               DateTime?
-  openedAt                DateTime?
-  closedAt                DateTime?
-  items                   OrderItem[]
-  payments                OrderPayment[]
-  refunds                 Refund[]
-  auditLogs               OrderAuditLog[]
-  kitchenTickets          KitchenTicket[]
-  createdAt               DateTime        @default(now())
-  updatedAt               DateTime        @updatedAt()
+  id                        String               @id() @default(cuid())
+  storeId                   String?
+  store                     Store?               @relation(fields: [storeId], references: [id])
+  orderNumber               String               @unique()
+  pickupNumber              String?
+  orderType                 OrderType            @default(TAKEAWAY)
+  tableId                   String?
+  table                     DiningTable?         @relation("OrderDiningTable", fields: [tableId], references: [id])
+  currentForTable           DiningTable?         @relation("CurrentTableOrder")
+  customerId                String?
+  customer                  Customer?            @relation(fields: [customerId], references: [id])
+  customerPhoneSnapshot     String?
+  customerNameSnapshot      String?
+  loyaltyPointsEarned       Int                  @default(0)
+  loyaltyPointsBalanceAfter Int?
+  guestCount                Int?
+  status                    OrderStatus          @default(OPEN)
+  printStatus               PrintStatus          @default(NOT_PRINTED)
+  paymentMethod             PaymentMethod?
+  currency                  String               @default("USD")
+  subtotal                  Decimal              @db.Decimal(10, 2)
+  adjustment                Decimal              @default(0) @db.Decimal(10, 2)
+  promotionDiscountAmount   Decimal              @default(0) @db.Decimal(10, 2)
+  manualDiscountAmount      Decimal              @default(0) @db.Decimal(10, 2)
+  totalDiscountAmount       Decimal              @default(0) @db.Decimal(10, 2)
+  appliedPromotions         Json?
+  adjustmentType            String?
+  adjustmentValue           Decimal?             @db.Decimal(10, 2)
+  discountReason            String?              @db.Text()
+  taxRate                   Decimal              @default(0) @db.Decimal(7, 4)
+  tax                       Decimal              @default(0) @db.Decimal(10, 2)
+  serviceChargeRate         Decimal              @default(0) @db.Decimal(7, 4)
+  serviceCharge             Decimal              @default(0) @db.Decimal(10, 2)
+  tip                       Decimal              @default(0) @db.Decimal(10, 2)
+  total                     Decimal              @db.Decimal(10, 2)
+  cashReceived              Decimal?             @db.Decimal(10, 2)
+  changeDue                 Decimal?             @db.Decimal(10, 2)
+  paidAt                    DateTime?
+  printedAt                 DateTime?
+  heldAt                    DateTime?
+  resumedAt                 DateTime?
+  openedAt                  DateTime?
+  closedAt                  DateTime?
+  items                     OrderItem[]
+  payments                  OrderPayment[]
+  refunds                   Refund[]
+  auditLogs                 OrderAuditLog[]
+  kitchenTickets            KitchenTicket[]
+  loyaltyPointLedgers       LoyaltyPointLedger[]
+  createdAt                 DateTime             @default(now())
+  updatedAt                 DateTime             @updatedAt()
 
   @@index([storeId])
   @@index([tableId])
+  @@index([customerId])
   @@index([storeId, paidAt])
   @@index([storeId, status, paidAt])
+}
+
+model Customer {
+  id              String               @id() @default(cuid())
+  storeId         String
+  store           Store                @relation(fields: [storeId], references: [id])
+  phone           String
+  normalizedPhone String
+  name            String?
+  note            String?              @db.Text()
+  tags            Json?
+  status          CustomerStatus       @default(ACTIVE)
+  firstOrderAt    DateTime?
+  lastOrderAt     DateTime?
+  orderCount      Int                  @default(0)
+  totalSpend      Decimal              @default(0) @db.Decimal(10, 2)
+  pointsBalance   Int                  @default(0)
+  orders          Order[]
+  pointLedgers    LoyaltyPointLedger[]
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt()
+
+  @@unique([storeId, normalizedPhone])
+  @@index([storeId, status])
+  @@index([storeId, lastOrderAt])
+}
+
+model LoyaltyPointLedger {
+  id              String                 @id() @default(cuid())
+  storeId         String
+  store           Store                  @relation(fields: [storeId], references: [id])
+  customerId      String
+  customer        Customer               @relation(fields: [customerId], references: [id])
+  orderId         String?
+  order           Order?                 @relation(fields: [orderId], references: [id])
+  type            LoyaltyPointLedgerType
+  points          Int
+  balanceAfter    Int
+  reason          String                 @db.Text()
+  createdByUserId String?
+  createdBy       User?                  @relation("LoyaltyPointLedgerCreatedBy", fields: [createdByUserId], references: [id])
+  createdAt       DateTime               @default(now())
+
+  @@index([storeId])
+  @@index([customerId])
+  @@index([orderId])
+  @@index([storeId, createdAt])
 }
 
 model BusinessDay {

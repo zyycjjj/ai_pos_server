@@ -84,6 +84,23 @@ export class CheckoutTableDto {
   @IsNumber()
   @Min(0)
   tip?: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  customerId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  customerPhone?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  customerName?: string;
 }
 
 export class CancelTableOrderDto {

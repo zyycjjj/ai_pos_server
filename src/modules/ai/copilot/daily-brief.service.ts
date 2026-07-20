@@ -41,5 +41,6 @@ export function createSuggestedQuestions() {
     'What are my peak hours?',
     'Why are refunds increasing?',
     'Which kitchen station is slowest?',
+    'How are repeat customers trending?',
   ];
 }

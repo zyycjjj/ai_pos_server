@@ -31,6 +31,7 @@ describe('CheckoutService', () => {
         updatedAt: createdAt,
       },
     ];
+    let storedOrder: any;
     const prisma = {
       product: {
         findMany: async () => products,
@@ -38,7 +39,7 @@ describe('CheckoutService', () => {
       $transaction: async (callback: any) => callback(prisma),
       order: {
         count: async () => 0,
-        create: async ({ data }: any) => ({
+        create: async ({ data }: any) => (storedOrder = {
           id: 'order-1',
           orderNumber: data.orderNumber,
           pickupNumber: data.pickupNumber,
@@ -73,6 +74,7 @@ describe('CheckoutService', () => {
             ...item,
           })),
         }),
+        findUniqueOrThrow: async () => storedOrder,
       },
     };
 
@@ -139,6 +141,7 @@ describe('CheckoutService', () => {
         updatedAt: createdAt,
       },
     ];
+    let storedOrder: any;
     const prisma = {
       product: {
         findMany: async () => products,
@@ -146,7 +149,7 @@ describe('CheckoutService', () => {
       $transaction: async (callback: any) => callback(prisma),
       order: {
         count: async () => 0,
-        create: async ({ data }: any) => ({
+        create: async ({ data }: any) => (storedOrder = {
           id: 'order-1',
           orderNumber: data.orderNumber,
           pickupNumber: data.pickupNumber,
@@ -181,6 +184,7 @@ describe('CheckoutService', () => {
             ...item,
           })),
         }),
+        findUniqueOrThrow: async () => storedOrder,
       },
     };
 
@@ -247,6 +251,7 @@ describe('CheckoutService', () => {
         updatedAt: createdAt,
       },
     ];
+    let storedOrder: any;
     const prisma = {
       product: {
         findMany: async () => products,
@@ -281,6 +286,7 @@ describe('CheckoutService', () => {
         updatedAt: createdAt,
       },
     ];
+    let storedOrder: any;
     const prisma = {
       product: {
         findMany: async () => products,
@@ -288,7 +294,7 @@ describe('CheckoutService', () => {
       $transaction: async (callback: any) => callback(prisma),
       order: {
         count: async () => 4,
-        create: async ({ data }: any) => ({
+        create: async ({ data }: any) => (storedOrder = {
           id: 'order-1',
           orderNumber: data.orderNumber,
           pickupNumber: data.pickupNumber,
@@ -323,6 +329,7 @@ describe('CheckoutService', () => {
             ...item,
           })),
         }),
+        findUniqueOrThrow: async () => storedOrder,
       },
     };
 
@@ -360,14 +367,16 @@ describe('CheckoutService', () => {
         updatedAt: createdAt,
       },
     ];
-    const createPrisma = () => ({
+    const createPrisma = () => {
+      let storedOrder: any;
+      return ({
       product: {
         findMany: async () => products,
       },
       $transaction: async (callback: any) => callback(createPrisma()),
       order: {
         count: async () => 0,
-        create: async ({ data }: any) => ({
+        create: async ({ data }: any) => (storedOrder = {
           id: 'order-1',
           orderNumber: data.orderNumber,
           pickupNumber: data.pickupNumber,
@@ -402,8 +411,10 @@ describe('CheckoutService', () => {
             ...item,
           })),
         }),
+        findUniqueOrThrow: async () => storedOrder,
       },
     });
+    };
 
     const fixedReductionOrder = await new CheckoutService(createPrisma() as any).createOrder({
       items: [{ productId: 'tea', quantity: 1 }],
@@ -442,6 +453,7 @@ describe('CheckoutService', () => {
         updatedAt: createdAt,
       },
     ];
+    let storedOrder: any;
     const prisma = {
       product: {
         findMany: async () => products,
@@ -449,7 +461,7 @@ describe('CheckoutService', () => {
       $transaction: async (callback: any) => callback(prisma),
       order: {
         count: async () => 0,
-        create: async ({ data }: any) => ({
+        create: async ({ data }: any) => (storedOrder = {
           id: 'order-1',
           orderNumber: data.orderNumber,
           pickupNumber: data.pickupNumber,
@@ -484,6 +496,7 @@ describe('CheckoutService', () => {
             ...item,
           })),
         }),
+        findUniqueOrThrow: async () => storedOrder,
       },
     };
 

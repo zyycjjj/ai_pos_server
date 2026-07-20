@@ -236,6 +236,19 @@ enum AiExecutionStatus {
   FALLBACK
 }
 
+enum CustomerStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+}
+
+enum LoyaltyPointLedgerType {
+  EARN
+  ADJUST
+  VOID
+  REFUND_ADJUST
+}
+
 model Store {
   id        String     @id @default(cuid())
   name      String
@@ -265,6 +278,8 @@ model Store {
   aiConversations AiConversation[]
   aiMessages AiMessage[]
   aiExecutions AiExecution[]
+  customers Customer[]
+  loyaltyPointLedgers LoyaltyPointLedger[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
 
@@ -290,6 +305,7 @@ model User {
   cashMovements CashMovement[] @relation("CashMovementCreatedBy")
   createdKitchenTickets KitchenTicket[] @relation("KitchenTicketCreatedBy")
   requestedPrintJobs PrintJob[] @relation("PrintJobRequestedBy")
+  createdLoyaltyPointLedgers LoyaltyPointLedger[] @relation("LoyaltyPointLedgerCreatedBy")
   aiConversations AiConversation[]
   aiMessages AiMessage[]
   createdAt    DateTime    @default(now())
@@ -440,6 +456,12 @@ model Order {
   tableId         String?
   table           DiningTable?   @relation("OrderDiningTable", fields: [tableId], references: [id])
   currentForTable DiningTable?   @relation("CurrentTableOrder")
+  customerId      String?
+  customer        Customer?      @relation(fields: [customerId], references: [id])
+  customerPhoneSnapshot String?
+  customerNameSnapshot  String?
+  loyaltyPointsEarned Int        @default(0)
+  loyaltyPointsBalanceAfter Int?
   guestCount      Int?
   status          OrderStatus    @default(OPEN)
   printStatus     PrintStatus    @default(NOT_PRINTED)
@@ -473,13 +495,64 @@ model Order {
   refunds         Refund[]
   auditLogs       OrderAuditLog[]
   kitchenTickets  KitchenTicket[]
+  loyaltyPointLedgers LoyaltyPointLedger[]
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
   @@index([storeId])
   @@index([tableId])
+  @@index([customerId])
   @@index([storeId, paidAt])
   @@index([storeId, status, paidAt])
+  @@allow("all", true)
+}
+
+model Customer {
+  id              String         @id @default(cuid())
+  storeId         String
+  store           Store          @relation(fields: [storeId], references: [id])
+  phone           String
+  normalizedPhone String
+  name            String?
+  note            String?        @db.Text
+  tags            Json?
+  status          CustomerStatus @default(ACTIVE)
+  firstOrderAt    DateTime?
+  lastOrderAt     DateTime?
+  orderCount      Int            @default(0)
+  totalSpend      Decimal        @default(0) @db.Decimal(10, 2)
+  pointsBalance   Int            @default(0)
+  orders          Order[]
+  pointLedgers    LoyaltyPointLedger[]
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@unique([storeId, normalizedPhone])
+  @@index([storeId, status])
+  @@index([storeId, lastOrderAt])
+  @@allow("all", true)
+}
+
+model LoyaltyPointLedger {
+  id              String                 @id @default(cuid())
+  storeId         String
+  store           Store                  @relation(fields: [storeId], references: [id])
+  customerId      String
+  customer        Customer               @relation(fields: [customerId], references: [id])
+  orderId         String?
+  order           Order?                 @relation(fields: [orderId], references: [id])
+  type            LoyaltyPointLedgerType
+  points          Int
+  balanceAfter    Int
+  reason          String                 @db.Text
+  createdByUserId String?
+  createdBy       User?                  @relation("LoyaltyPointLedgerCreatedBy", fields: [createdByUserId], references: [id])
+  createdAt       DateTime               @default(now())
+
+  @@index([storeId])
+  @@index([customerId])
+  @@index([orderId])
+  @@index([storeId, createdAt])
   @@allow("all", true)
 }
 

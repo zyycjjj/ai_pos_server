@@ -21,6 +21,7 @@ test('analytics always scopes repository reads to the active store context', asy
     sales as never,
     {} as never,
     {} as never,
+    {} as never,
   );
 
   const result = await service.overview({ from: '2026-07-10', to: '2026-07-10', compare: 'previous_period' });

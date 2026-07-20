@@ -5,6 +5,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 import { StoreContextService } from '@/common/store-context.service';
 import { multiplyMoney, toMoney, toMoneyNumber } from '@/common/utils/money';
 import { presentOrder } from '@/common/utils/order-presenter';
+import { CustomersService } from '@/modules/customers/customers.service';
 import type { AuthRequestUser } from '@/modules/auth/auth.types';
 import { PrintService } from '@/modules/print/print.service';
 import { ShiftsService } from '@/modules/shifts/shifts.service';
@@ -20,6 +21,7 @@ export class TablesService {
     private readonly prisma: PrismaService,
     private readonly shiftsService: ShiftsService,
     private readonly printService: PrintService,
+    private readonly customersService: CustomersService,
     private readonly storeContext?: StoreContextService,
   ) {}
 
@@ -164,10 +166,18 @@ export class TablesService {
     const total = order.subtotal.plus(tip).toDecimalPlaces(2);
     const paymentResult = this.resolvePayments(dto.payments, total);
     const paid = await this.prisma.$transaction(async (tx) => {
+      const customer = await this.customersService.resolveOrderCustomer(tx, this.getStoreId(), {
+        customerId: dto.customerId,
+        customerPhone: dto.customerPhone,
+        customerName: dto.customerName,
+      });
       const updated = await tx.order.update({
         where: { id: order.id },
         data: {
           status: OrderStatus.PAID,
+          customerId: customer?.customerId,
+          customerPhoneSnapshot: customer?.customerPhoneSnapshot,
+          customerNameSnapshot: customer?.customerNameSnapshot,
           tip,
           total,
           paymentMethod: paymentResult.summaryMethod,
@@ -188,8 +198,16 @@ export class TablesService {
           createdByUserId: currentUser?.id,
         });
       }
+      await this.customersService.recordPaidOrder(tx, {
+        storeId: this.getStoreId(),
+        customerId: customer?.customerId,
+        orderId: updated.id,
+        orderTotal: updated.total,
+        paidAt: updated.paidAt ?? new Date(),
+        createdByUserId: currentUser?.id,
+      });
       await tx.diningTable.update({ where: { id }, data: { status: DiningTableStatus.DIRTY, currentOrderId: null } });
-      return updated;
+      return tx.order.findUniqueOrThrow({ where: { id: updated.id }, include: this.orderInclude() });
     });
     await this.printService.createAutoJobsForOrder(paid.id).catch(() => undefined);
     return this.getTable(id);

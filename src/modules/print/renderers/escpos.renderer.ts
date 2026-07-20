@@ -60,6 +60,7 @@ export class EscPosRenderer {
       moneyLine('Net Total', payload.totals?.netTotal ?? payload.totals?.total),
       separator(),
       ...((payload.payments ?? []) as any[]).map((payment) => moneyLine(payment.method, payment.amount)),
+      ...formatCustomer(payload.customer),
       payload.footer?.message ?? 'Thank you',
     ];
     return compact(lines);
@@ -94,6 +95,7 @@ export class EscPosRenderer {
       ...((payload.items ?? []) as any[]).map((item) => `${item.quantity} x ${item.name}  ${money(item.amount)}`),
       separator(),
       moneyLine('Refund Amount', payload.refund?.amount),
+      payload.order?.customerPhone ? `Customer: ${[payload.order.customerName, payload.order.customerPhone].filter(Boolean).join(' / ')}` : null,
       `Reason: ${payload.refund?.reason ?? '-'}`,
     ]);
   }
@@ -167,6 +169,16 @@ function formatModifiers(modifiers: unknown) {
 function formatPromotions(promotions: unknown) {
   if (!Array.isArray(promotions)) return [];
   return promotions.map((promotion: any) => `Promo: ${promotion.name}${promotion.promoCode ? ` (${promotion.promoCode})` : ''}`);
+}
+
+function formatCustomer(customer: any) {
+  if (!customer) return [];
+  return compact([
+    separator(),
+    `Customer: ${[customer.name, customer.phone].filter(Boolean).join(' / ')}`,
+    typeof customer.pointsEarned === 'number' ? `Points earned: ${customer.pointsEarned}` : null,
+    typeof customer.pointsBalance === 'number' ? `Points balance: ${customer.pointsBalance}` : null,
+  ]);
 }
 
 function formatDate(value: unknown) {

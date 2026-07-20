@@ -10,6 +10,15 @@ export function compactAnalyticsContext<T extends Record<string, unknown>>(conte
     modifiers: Array.isArray(context.modifiers) ? context.modifiers.slice(0, 10) : context.modifiers,
     shifts: Array.isArray(context.shifts) ? context.shifts.slice(0, 8) : context.shifts,
     kitchen: Array.isArray(context.kitchen) ? context.kitchen.slice(0, 8) : context.kitchen,
+    customers:
+      context.customers && typeof context.customers === 'object'
+        ? {
+            ...(context.customers as Record<string, unknown>),
+            topCustomers: Array.isArray((context.customers as Record<string, unknown>).topCustomers)
+              ? ((context.customers as Record<string, unknown>).topCustomers as unknown[]).slice(0, 5)
+              : (context.customers as Record<string, unknown>).topCustomers,
+          }
+        : context.customers,
     signals: Array.isArray(context.signals) ? context.signals.slice(0, 8) : context.signals,
   };
 }

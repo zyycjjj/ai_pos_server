@@ -1,6 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { LoyaltyPointLedgerType } from '@prisma/client';
 
 import { StoreContextService } from '@/common/store-context.service';
+import { toMoneyNumber } from '@/common/utils/money';
+import { PrismaService } from '@/prisma/prisma.service';
 
 import { buildInsightSignals, compareSalesMetrics } from './domain/analytics-math';
 import { AnalyticsPeriodError, comparisonPeriod, resolvePeriod, resolvePresetDates } from './domain/analytics-time';
@@ -17,6 +20,7 @@ export class AnalyticsService {
     private readonly sales: SalesAnalyticsRepository,
     private readonly performance: PerformanceAnalyticsRepository,
     private readonly operations: OperationsAnalyticsRepository,
+    private readonly prisma: PrismaService,
   ) {}
 
   async overview(query: AnalyticsQueryDto) {
@@ -97,6 +101,11 @@ export class AnalyticsService {
     return { period: this.presentPeriod(period), currency: store.currency, metrics: await this.sales.paymentMix(store.id, period) };
   }
 
+  async customers(query: AnalyticsQueryDto) {
+    const { store, period } = await this.context(query);
+    return { period: this.presentPeriod(period), currency: store.currency, metrics: await this.customerAnalytics(store.id, period) };
+  }
+
   async signals(query: AnalyticsQueryDto) {
     const data = await this.signalData(query);
     return { period: this.presentPeriod(data.period), signals: data.signals };
@@ -104,7 +113,7 @@ export class AnalyticsService {
 
   async aiContext(query: AnalyticsQueryDto) {
     const context = await this.context(query);
-    const [current, previous, daily, hourly, products, categories, modifiers, shifts, kitchen, payments] = await Promise.all([
+    const [current, previous, daily, hourly, products, categories, modifiers, shifts, kitchen, payments, customers] = await Promise.all([
       this.sales.metric(context.store.id, context.period),
       this.sales.metric(context.store.id, context.previousPeriod),
       this.sales.daily(context.store.id, context.period),
@@ -115,6 +124,7 @@ export class AnalyticsService {
       this.operations.shifts(context.store.id, context.period),
       this.operations.kitchen(context.store.id, context.period),
       this.sales.paymentMix(context.store.id, context.period),
+      this.customerAnalytics(context.store.id, context.period),
     ]);
     const [refunds, previousRefunds] = await Promise.all([
       this.operations.refunds(context.store.id, context.period, current.grossSales, current.paidOrderCount),
@@ -138,8 +148,49 @@ export class AnalyticsService {
       shifts: shifts.slice(0, 10),
       kitchen: kitchen.slice(0, 10),
       payments,
+      customers,
       signals,
-      coverage: { sales: true, products: true, modifiers: true, refunds: true, shifts: true, kitchen: true, payments: true, inventory: false },
+      coverage: { sales: true, products: true, modifiers: true, refunds: true, shifts: true, kitchen: true, payments: true, customers: true, inventory: false },
+    };
+  }
+
+  private async customerAnalytics(storeId: string, period: AnalyticsPeriod) {
+    const periodFilter = { gte: period.start, lte: period.end };
+    const [customerCount, newCustomers, activeCustomers, repeatCustomers, topCustomers, issued, adjusted] = await Promise.all([
+      this.prisma.customer.count({ where: { storeId } }),
+      this.prisma.customer.count({ where: { storeId, createdAt: periodFilter } }),
+      this.prisma.customer.count({ where: { storeId, lastOrderAt: periodFilter } }),
+      this.prisma.customer.count({ where: { storeId, orderCount: { gt: 1 }, lastOrderAt: periodFilter } }),
+      this.prisma.customer.findMany({
+        where: { storeId },
+        orderBy: [{ totalSpend: 'desc' }, { lastOrderAt: 'desc' }],
+        take: 5,
+      }),
+      this.prisma.loyaltyPointLedger.aggregate({
+        where: { storeId, type: LoyaltyPointLedgerType.EARN, createdAt: periodFilter },
+        _sum: { points: true },
+      }),
+      this.prisma.loyaltyPointLedger.aggregate({
+        where: { storeId, type: LoyaltyPointLedgerType.REFUND_ADJUST, createdAt: periodFilter },
+        _sum: { points: true },
+      }),
+    ]);
+    return {
+      customerCount,
+      newCustomers,
+      repeatCustomers,
+      repeatPurchaseRate: activeCustomers === 0 ? 0 : Math.round((repeatCustomers / activeCustomers) * 10_000) / 100,
+      loyaltyPointsIssued: issued._sum.points ?? 0,
+      loyaltyPointsAdjusted: adjusted._sum.points ?? 0,
+      topCustomers: topCustomers.map((customer) => ({
+        id: customer.id,
+        phone: customer.phone,
+        name: customer.name,
+        orderCount: customer.orderCount,
+        totalSpend: toMoneyNumber(customer.totalSpend),
+        pointsBalance: customer.pointsBalance,
+        lastOrderAt: customer.lastOrderAt?.toISOString() ?? null,
+      })),
     };
   }
 

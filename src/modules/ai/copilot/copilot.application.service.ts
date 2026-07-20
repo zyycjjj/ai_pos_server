@@ -152,6 +152,7 @@ function buildBackendEvidence(context: Record<string, any>): CopilotEvidence[] {
   const overview = context.overview ?? {};
   const comparison = context.comparison ?? {};
   const refunds = context.refunds ?? {};
+  const customers = context.customers ?? {};
   const kitchen = Array.isArray(context.kitchen) ? context.kitchen[0] : undefined;
   const topProduct = Array.isArray(context.topProducts) ? context.topProducts[0] : undefined;
   const evidence: Array<CopilotEvidence | null> = [
@@ -159,6 +160,8 @@ function buildBackendEvidence(context: Record<string, any>): CopilotEvidence[] {
     { label: 'Orders', value: numberOrNull(overview.orderCount), changePercent: numberOrNull(comparison.orderCountChangePercent) },
     { label: 'Average ticket', value: numberOrNull(overview.averageTicket), changePercent: numberOrNull(comparison.averageTicketChangePercent) },
     { label: 'Refund rate', value: numberOrNull(refunds.refundRate) },
+    { label: 'New customers', value: numberOrNull(customers.newCustomers) },
+    { label: 'Repeat purchase rate', value: numberOrNull(customers.repeatPurchaseRate) },
     topProduct ? { label: `Top product: ${topProduct.name}`, value: numberOrNull(topProduct.netSales), changePercent: numberOrNull(topProduct.changePercent) } : null,
     kitchen ? { label: `Kitchen: ${kitchen.stationName}`, value: numberOrNull(kitchen.avgPrepTimeMinutes) } : null,
   ];
