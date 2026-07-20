@@ -183,6 +183,22 @@ enum PromotionStackingPolicy {
   EXCLUSIVE
 }
 
+enum CustomerSegmentStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum CustomerSegmentType {
+  SMART_RULE
+}
+
+enum CustomerEligibilityMode {
+  ALL_CUSTOMERS
+  CUSTOMER_ONLY
+  SEGMENT_ONLY
+}
+
 enum CatalogStatus {
   ACTIVE
   INACTIVE
@@ -240,38 +256,40 @@ enum LoyaltyPointLedgerType {
 }
 
 model Store {
-  id                  String               @id() @default(cuid())
-  name                String
-  code                String?              @unique()
-  timezone            String               @default("Asia/Shanghai")
-  currency            String               @default("USD")
-  active              Boolean              @default(true)
-  users               StoreUser[]
-  categories          Category[]
-  diningAreas         DiningArea[]
-  diningTables        DiningTable[]
-  products            Product[]
-  orders              Order[]
-  refunds             Refund[]
-  auditLogs           OrderAuditLog[]
-  shifts              Shift[]
-  businessDays        BusinessDay[]
-  cashMovements       CashMovement[]
-  kitchenStations     KitchenStation[]
-  kitchenTickets      KitchenTicket[]
-  kitchenTicketItems  KitchenTicketItem[]
-  printers            Printer[]
-  printerRoutes       PrinterRoute[]
-  printJobs           PrintJob[]
-  aiDrafts            AiDraft[]
-  campaigns           Campaign[]
-  aiConversations     AiConversation[]
-  aiMessages          AiMessage[]
-  aiExecutions        AiExecution[]
-  customers           Customer[]
-  loyaltyPointLedgers LoyaltyPointLedger[]
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt()
+  id                     String                  @id() @default(cuid())
+  name                   String
+  code                   String?                 @unique()
+  timezone               String                  @default("Asia/Shanghai")
+  currency               String                  @default("USD")
+  active                 Boolean                 @default(true)
+  users                  StoreUser[]
+  categories             Category[]
+  diningAreas            DiningArea[]
+  diningTables           DiningTable[]
+  products               Product[]
+  orders                 Order[]
+  refunds                Refund[]
+  auditLogs              OrderAuditLog[]
+  shifts                 Shift[]
+  businessDays           BusinessDay[]
+  cashMovements          CashMovement[]
+  kitchenStations        KitchenStation[]
+  kitchenTickets         KitchenTicket[]
+  kitchenTicketItems     KitchenTicketItem[]
+  printers               Printer[]
+  printerRoutes          PrinterRoute[]
+  printJobs              PrintJob[]
+  aiDrafts               AiDraft[]
+  campaigns              Campaign[]
+  aiConversations        AiConversation[]
+  aiMessages             AiMessage[]
+  aiExecutions           AiExecution[]
+  customers              Customer[]
+  customerSegments       CustomerSegment[]
+  customerSegmentMembers CustomerSegmentMember[]
+  loyaltyPointLedgers    LoyaltyPointLedger[]
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt()
 }
 
 model User {
@@ -486,24 +504,25 @@ model Order {
 }
 
 model Customer {
-  id              String               @id() @default(cuid())
-  storeId         String
-  store           Store                @relation(fields: [storeId], references: [id])
-  phone           String
-  normalizedPhone String
-  name            String?
-  note            String?              @db.Text()
-  tags            Json?
-  status          CustomerStatus       @default(ACTIVE)
-  firstOrderAt    DateTime?
-  lastOrderAt     DateTime?
-  orderCount      Int                  @default(0)
-  totalSpend      Decimal              @default(0) @db.Decimal(10, 2)
-  pointsBalance   Int                  @default(0)
-  orders          Order[]
-  pointLedgers    LoyaltyPointLedger[]
-  createdAt       DateTime             @default(now())
-  updatedAt       DateTime             @updatedAt()
+  id                 String                  @id() @default(cuid())
+  storeId            String
+  store              Store                   @relation(fields: [storeId], references: [id])
+  phone              String
+  normalizedPhone    String
+  name               String?
+  note               String?                 @db.Text()
+  tags               Json?
+  status             CustomerStatus          @default(ACTIVE)
+  firstOrderAt       DateTime?
+  lastOrderAt        DateTime?
+  orderCount         Int                     @default(0)
+  totalSpend         Decimal                 @default(0) @db.Decimal(10, 2)
+  pointsBalance      Int                     @default(0)
+  orders             Order[]
+  segmentMemberships CustomerSegmentMember[]
+  pointLedgers       LoyaltyPointLedger[]
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt()
 
   @@unique([storeId, normalizedPhone])
   @@index([storeId, status])
@@ -530,6 +549,42 @@ model LoyaltyPointLedger {
   @@index([customerId])
   @@index([orderId])
   @@index([storeId, createdAt])
+}
+
+model CustomerSegment {
+  id              String                  @id() @default(cuid())
+  storeId         String
+  store           Store                   @relation(fields: [storeId], references: [id])
+  name            String
+  description     String?                 @db.Text()
+  status          CustomerSegmentStatus   @default(ACTIVE)
+  type            CustomerSegmentType     @default(SMART_RULE)
+  ruleJson        Json
+  lastEvaluatedAt DateTime?
+  memberCount     Int                     @default(0)
+  members         CustomerSegmentMember[]
+  campaigns       Campaign[]
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt()
+
+  @@index([storeId])
+  @@index([storeId, status])
+}
+
+model CustomerSegmentMember {
+  id           String          @id() @default(cuid())
+  storeId      String
+  store        Store           @relation(fields: [storeId], references: [id])
+  segmentId    String
+  segment      CustomerSegment @relation(fields: [segmentId], references: [id])
+  customerId   String
+  customer     Customer        @relation(fields: [customerId], references: [id])
+  matchedAt    DateTime        @default(now())
+  ruleSnapshot Json?
+
+  @@unique([segmentId, customerId])
+  @@index([storeId])
+  @@index([customerId])
 }
 
 model BusinessDay {
@@ -859,37 +914,41 @@ model AiDraft {
 }
 
 model Campaign {
-  id              String                  @id() @default(cuid())
-  storeId         String
-  store           Store                   @relation(fields: [storeId], references: [id])
-  name            String
-  goal            String?
-  status          CampaignStatus          @default(DRAFT)
-  type            CampaignType            @default(ORDER_DISCOUNT)
-  stackingPolicy  PromotionStackingPolicy @default(BEST_ONLY)
-  discountType    String?
-  discountValue   Float?
-  thresholdAmount Decimal?                @db.Decimal(10, 2)
-  promoCode       String?
-  productId       String?
-  categoryName    String?
-  startsAt        DateTime?
-  endsAt          DateTime?
-  priority        Int                     @default(0)
-  usageLimit      Int?
-  usageCount      Int                     @default(0)
-  discountTotal   Decimal                 @default(0) @db.Decimal(10, 2)
-  timeWindow      String?
-  bannerCopy      String?
-  staffMessage    String?
-  structuredJson  Json?
-  createdById     String?
-  createdAt       DateTime                @default(now())
-  updatedAt       DateTime                @updatedAt()
+  id                      String                  @id() @default(cuid())
+  storeId                 String
+  store                   Store                   @relation(fields: [storeId], references: [id])
+  name                    String
+  goal                    String?
+  status                  CampaignStatus          @default(DRAFT)
+  type                    CampaignType            @default(ORDER_DISCOUNT)
+  stackingPolicy          PromotionStackingPolicy @default(BEST_ONLY)
+  discountType            String?
+  discountValue           Float?
+  thresholdAmount         Decimal?                @db.Decimal(10, 2)
+  promoCode               String?
+  productId               String?
+  categoryName            String?
+  customerEligibilityMode CustomerEligibilityMode @default(ALL_CUSTOMERS)
+  targetCustomerSegmentId String?
+  targetCustomerSegment   CustomerSegment?        @relation(fields: [targetCustomerSegmentId], references: [id])
+  startsAt                DateTime?
+  endsAt                  DateTime?
+  priority                Int                     @default(0)
+  usageLimit              Int?
+  usageCount              Int                     @default(0)
+  discountTotal           Decimal                 @default(0) @db.Decimal(10, 2)
+  timeWindow              String?
+  bannerCopy              String?
+  staffMessage            String?
+  structuredJson          Json?
+  createdById             String?
+  createdAt               DateTime                @default(now())
+  updatedAt               DateTime                @updatedAt()
 
   @@index([storeId])
   @@index([storeId, status])
   @@index([storeId, promoCode])
+  @@index([targetCustomerSegmentId])
 }
 
 model AiConversation {

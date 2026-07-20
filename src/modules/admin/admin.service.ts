@@ -1,5 +1,5 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { AiDraftStatus, CampaignStatus, CampaignType, CatalogStatus, KitchenStationStatus, ModifierOptionStatus, OrderStatus, ProductAvailabilityStatus, PromotionStackingPolicy, StoreRole } from '@prisma/client';
+import { AiDraftStatus, CampaignStatus, CampaignType, CatalogStatus, CustomerEligibilityMode, KitchenStationStatus, ModifierOptionStatus, OrderStatus, ProductAvailabilityStatus, PromotionStackingPolicy, StoreRole } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 import { ClsService } from 'nestjs-cls';
 
@@ -459,6 +459,8 @@ export class AdminService {
       promoCode: campaign.promoCode,
       productId: campaign.productId,
       categoryName: campaign.categoryName,
+      customerEligibilityMode: campaign.customerEligibilityMode,
+      targetCustomerSegmentId: campaign.targetCustomerSegmentId,
       stackingPolicy: campaign.stackingPolicy,
       usageLimit: campaign.usageLimit,
       usageCount: campaign.usageCount,
@@ -472,6 +474,7 @@ export class AdminService {
 
   async createCampaign(dto: UpsertCampaignDto) {
     const storeId = this.storeContext.getStoreId();
+    await this.assertCampaignCustomerTarget(storeId, dto);
     const campaign = await this.prisma.campaign.create({
       data: {
         storeId,
@@ -485,6 +488,8 @@ export class AdminService {
         promoCode: dto.promoCode?.trim().toUpperCase(),
         productId: dto.productId,
         categoryName: dto.categoryName,
+        customerEligibilityMode: (dto.customerEligibilityMode ?? CustomerEligibilityMode.ALL_CUSTOMERS) as CustomerEligibilityMode,
+        targetCustomerSegmentId: dto.customerEligibilityMode === CustomerEligibilityMode.SEGMENT_ONLY ? dto.targetCustomerSegmentId : null,
         stackingPolicy: (dto.stackingPolicy ?? PromotionStackingPolicy.BEST_ONLY) as PromotionStackingPolicy,
         priority: dto.priority ?? 0,
         usageLimit: dto.usageLimit,
@@ -495,7 +500,8 @@ export class AdminService {
   }
 
   async updateCampaign(id: string, dto: UpsertCampaignDto) {
-    await this.findCampaign(id);
+    const campaign = await this.findCampaign(id);
+    await this.assertCampaignCustomerTarget(campaign.storeId, dto);
     await this.prisma.campaign.update({
       where: { id },
       data: {
@@ -508,6 +514,8 @@ export class AdminService {
         promoCode: dto.promoCode?.trim().toUpperCase(),
         productId: dto.productId,
         categoryName: dto.categoryName,
+        customerEligibilityMode: (dto.customerEligibilityMode ?? CustomerEligibilityMode.ALL_CUSTOMERS) as CustomerEligibilityMode,
+        targetCustomerSegmentId: dto.customerEligibilityMode === CustomerEligibilityMode.SEGMENT_ONLY ? dto.targetCustomerSegmentId : null,
         stackingPolicy: (dto.stackingPolicy ?? PromotionStackingPolicy.BEST_ONLY) as PromotionStackingPolicy,
         priority: dto.priority ?? 0,
         usageLimit: dto.usageLimit,
@@ -535,6 +543,8 @@ export class AdminService {
       promoCode: campaign.promoCode,
       productId: campaign.productId,
       categoryName: campaign.categoryName,
+      customerEligibilityMode: campaign.customerEligibilityMode,
+      targetCustomerSegmentId: campaign.targetCustomerSegmentId,
       stackingPolicy: campaign.stackingPolicy,
       usageLimit: campaign.usageLimit,
       usageCount: campaign.usageCount,
@@ -550,6 +560,21 @@ export class AdminService {
     const campaign = await this.prisma.campaign.findFirst({ where: { id, storeId: this.storeContext.getStoreId() } });
     if (!campaign) throw new NotFoundException('Campaign not found.');
     return campaign;
+  }
+
+  private async assertCampaignCustomerTarget(storeId: string, dto: UpsertCampaignDto) {
+    const mode = (dto.customerEligibilityMode ?? CustomerEligibilityMode.ALL_CUSTOMERS) as CustomerEligibilityMode;
+    if (mode === CustomerEligibilityMode.SEGMENT_ONLY && !dto.targetCustomerSegmentId) {
+      throw new BadRequestException('SEGMENT_ONLY campaign requires targetCustomerSegmentId.');
+    }
+    if (dto.targetCustomerSegmentId) {
+      const segment = await this.prisma.customerSegment.findFirst({
+        where: { id: dto.targetCustomerSegmentId, storeId },
+      });
+      if (!segment) {
+        throw new BadRequestException('Target customer segment does not belong to the active store.');
+      }
+    }
   }
 
   async listAiDrafts() {

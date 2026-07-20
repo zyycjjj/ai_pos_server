@@ -17,6 +17,9 @@ export function compactAnalyticsContext<T extends Record<string, unknown>>(conte
             topCustomers: Array.isArray((context.customers as Record<string, unknown>).topCustomers)
               ? ((context.customers as Record<string, unknown>).topCustomers as unknown[]).slice(0, 5)
               : (context.customers as Record<string, unknown>).topCustomers,
+            topSegments: Array.isArray((context.customers as Record<string, unknown>).topSegments)
+              ? ((context.customers as Record<string, unknown>).topSegments as unknown[]).slice(0, 5)
+              : (context.customers as Record<string, unknown>).topSegments,
           }
         : context.customers,
     signals: Array.isArray(context.signals) ? context.signals.slice(0, 8) : context.signals,

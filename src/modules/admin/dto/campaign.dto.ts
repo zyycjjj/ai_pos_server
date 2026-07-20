@@ -55,6 +55,17 @@ export class UpsertCampaignDto {
   @MaxLength(120)
   categoryName?: string;
 
+  @ApiPropertyOptional({ enum: ['ALL_CUSTOMERS', 'CUSTOMER_ONLY', 'SEGMENT_ONLY'] })
+  @IsOptional()
+  @IsString()
+  @IsIn(['ALL_CUSTOMERS', 'CUSTOMER_ONLY', 'SEGMENT_ONLY'])
+  customerEligibilityMode?: 'ALL_CUSTOMERS' | 'CUSTOMER_ONLY' | 'SEGMENT_ONLY';
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  targetCustomerSegmentId?: string;
+
   @ApiPropertyOptional({ enum: ['BEST_ONLY', 'STACKABLE', 'EXCLUSIVE'] })
   @IsOptional()
   @IsString()

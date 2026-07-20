@@ -76,10 +76,11 @@ export class CheckoutService {
   async createOrder(dto: CreateOrderDto, currentUser?: AuthRequestUser) {
     const storeId = this.getStoreId();
     const activeShift = await this.resolveCheckoutShift(currentUser);
-    const orderDraft = await this.buildOrderDraft(dto, currentUser);
+    const customerInput = this.pickCustomerInput(dto);
+    const customer = await this.resolveCustomerBeforePricing(storeId, customerInput);
+    const orderDraft = await this.buildOrderDraft(dto, currentUser, customer?.customerId);
     const total = orderDraft.total;
     const paymentResult = validatePaymentLines(dto.payments, total);
-    const customerInput = this.pickCustomerInput(dto);
 
     const order = await this.createPaidOrderWithRetry({
       ...orderDraft,
@@ -88,6 +89,7 @@ export class CheckoutService {
       shiftId: activeShift?.id,
       createdByUserId: currentUser?.id,
       customerInput,
+      customer,
     });
 
     await this.printService?.createAutoJobsForOrder(order.id).catch(() => undefined);
@@ -97,10 +99,11 @@ export class CheckoutService {
 
   async holdOrder(dto: HoldOrderDto, currentUser?: AuthRequestUser) {
     const storeId = this.getStoreId();
-    const orderDraft = await this.buildOrderDraft(dto, currentUser);
+    const customerInput = this.pickCustomerInput(dto);
+    const customer = await this.resolveCustomerBeforePricing(storeId, customerInput);
+    const orderDraft = await this.buildOrderDraft(dto, currentUser, customer?.customerId);
     const order = await this.prisma.$transaction(
       async (tx) => {
-        const customer = await this.customersService?.resolveOrderCustomer(tx, storeId, this.pickCustomerInput(dto));
         const pickupNumber = await this.createPickupNumber(tx);
         const created = await tx.order.create({
           data: {
@@ -691,7 +694,14 @@ export class CheckoutService {
     };
   }
 
-  private async buildOrderDraft(dto: Pick<CreateOrderDto, 'items' | 'orderType' | 'currency' | 'adjustment' | 'tax' | 'taxRate' | 'serviceCharge' | 'serviceChargeRate' | 'tip' | 'promoCode' | 'selectedPromotionIds'>, currentUser?: AuthRequestUser) {
+  private async resolveCustomerBeforePricing(storeId: string, input: { customerId?: string; customerPhone?: string; customerName?: string }) {
+    if (!this.customersService || (!input.customerId && !input.customerPhone?.trim())) {
+      return null;
+    }
+    return this.prisma.$transaction((tx) => this.customersService!.resolveOrderCustomer(tx, storeId, input));
+  }
+
+  private async buildOrderDraft(dto: Pick<CreateOrderDto, 'items' | 'orderType' | 'currency' | 'adjustment' | 'tax' | 'taxRate' | 'serviceCharge' | 'serviceChargeRate' | 'tip' | 'promoCode' | 'selectedPromotionIds'>, currentUser?: AuthRequestUser, resolvedCustomerId?: string | null) {
     const storeId = this.getStoreId();
     const productIds = [...new Set(dto.items.map((item) => item.productId))];
     const products = await this.prisma.product.findMany({
@@ -730,12 +740,13 @@ export class CheckoutService {
 
     const subtotal = items.reduce((sum, item) => sum.plus(item.lineTotal), new Decimal(0)).toDecimalPlaces(2);
     this.assertDiscountPermission(subtotal, dto.adjustment, currentUser);
-    const promotionResult = await evaluateCheckoutPromotions(this.prisma.campaign, {
+    const promotionResult = await evaluateCheckoutPromotions(this.prisma, {
       storeId,
       subtotal,
       items,
       promoCode: dto.promoCode,
       selectedPromotionIds: dto.selectedPromotionIds,
+      resolvedCustomerId,
     });
     const pricing = buildCheckoutPricing({ ...dto, subtotal, promotionDiscountAmount: promotionResult.discountAmount });
 

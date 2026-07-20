@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { LoyaltyPointLedgerType } from '@prisma/client';
+import { CustomerEligibilityMode, CustomerSegmentStatus, LoyaltyPointLedgerType } from '@prisma/client';
 
 import { StoreContextService } from '@/common/store-context.service';
 import { toMoneyNumber } from '@/common/utils/money';
@@ -156,7 +156,7 @@ export class AnalyticsService {
 
   private async customerAnalytics(storeId: string, period: AnalyticsPeriod) {
     const periodFilter = { gte: period.start, lte: period.end };
-    const [customerCount, newCustomers, activeCustomers, repeatCustomers, topCustomers, issued, adjusted] = await Promise.all([
+    const [customerCount, newCustomers, activeCustomers, repeatCustomers, topCustomers, issued, adjusted, segmentCount, activeSegmentCount, topSegments, customerCampaigns] = await Promise.all([
       this.prisma.customer.count({ where: { storeId } }),
       this.prisma.customer.count({ where: { storeId, createdAt: periodFilter } }),
       this.prisma.customer.count({ where: { storeId, lastOrderAt: periodFilter } }),
@@ -174,6 +174,18 @@ export class AnalyticsService {
         where: { storeId, type: LoyaltyPointLedgerType.REFUND_ADJUST, createdAt: periodFilter },
         _sum: { points: true },
       }),
+      this.prisma.customerSegment.count({ where: { storeId } }),
+      this.prisma.customerSegment.count({ where: { storeId, status: CustomerSegmentStatus.ACTIVE } }),
+      this.prisma.customerSegment.findMany({
+        where: { storeId },
+        orderBy: [{ memberCount: 'desc' }, { updatedAt: 'desc' }],
+        take: 5,
+      }),
+      this.prisma.campaign.findMany({
+        where: { storeId, customerEligibilityMode: { not: CustomerEligibilityMode.ALL_CUSTOMERS } },
+        orderBy: { discountTotal: 'desc' },
+        take: 10,
+      }),
     ]);
     return {
       customerCount,
@@ -182,6 +194,17 @@ export class AnalyticsService {
       repeatPurchaseRate: activeCustomers === 0 ? 0 : Math.round((repeatCustomers / activeCustomers) * 10_000) / 100,
       loyaltyPointsIssued: issued._sum.points ?? 0,
       loyaltyPointsAdjusted: adjusted._sum.points ?? 0,
+      segmentCount,
+      activeSegmentCount,
+      customerCampaignUsageCount: customerCampaigns.reduce((sum, campaign) => sum + campaign.usageCount, 0),
+      customerCampaignDiscountTotal: customerCampaigns.reduce((sum, campaign) => sum + toMoneyNumber(campaign.discountTotal), 0),
+      topSegments: topSegments.map((segment) => ({
+        id: segment.id,
+        name: segment.name,
+        status: segment.status,
+        memberCount: segment.memberCount,
+        lastEvaluatedAt: segment.lastEvaluatedAt?.toISOString() ?? null,
+      })),
       topCustomers: topCustomers.map((customer) => ({
         id: customer.id,
         phone: customer.phone,

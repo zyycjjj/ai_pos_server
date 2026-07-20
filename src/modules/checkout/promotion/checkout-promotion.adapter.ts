@@ -1,10 +1,19 @@
-import { Campaign, CampaignStatus, CampaignType, Prisma, PromotionStackingPolicy } from '@prisma/client';
+import { BadRequestException } from '@nestjs/common';
+import { Campaign, CampaignStatus, CampaignType, CustomerEligibilityMode, CustomerSegmentStatus, Prisma, PromotionStackingPolicy } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
 import { toMoneyNumber } from '@/common/utils/money';
 
 type CampaignReader = {
-  findMany(input: Prisma.CampaignFindManyArgs): Promise<Campaign[]>;
+  findMany(input: Prisma.CampaignFindManyArgs): Promise<PromotionCampaign[]>;
+};
+
+type SegmentMemberReader = {
+  findMany(input: Prisma.CustomerSegmentMemberFindManyArgs): Promise<Array<{ segmentId: string }>>;
+};
+
+type PromotionCampaign = Campaign & {
+  targetCustomerSegment?: { status: CustomerSegmentStatus } | null;
 };
 
 export type PromotionEvaluationInput = {
@@ -13,16 +22,17 @@ export type PromotionEvaluationInput = {
   items: Array<{ productId: string; productCategorySnapshot: string | null; lineTotal: Decimal }>;
   promoCode?: string;
   selectedPromotionIds?: string[];
+  resolvedCustomerId?: string | null;
 };
 
-export async function evaluateCheckoutPromotions(campaignReader: CampaignReader | undefined, input: PromotionEvaluationInput) {
+export async function evaluateCheckoutPromotions(source: { campaign?: CampaignReader; customerSegmentMember?: SegmentMemberReader } | undefined, input: PromotionEvaluationInput) {
   // Checkout asks for a promotion result, while this adapter owns campaign status, code matching, usage limits, and stacking policy details.
-  if (!campaignReader) {
+  if (!source?.campaign) {
     return { discountAmount: new Decimal(0), appliedPromotions: [] };
   }
   const now = new Date();
   const normalizedCode = input.promoCode?.trim().toUpperCase();
-  const campaigns = await campaignReader.findMany({
+  const campaigns = await source.campaign.findMany({
     where: {
       storeId: input.storeId,
       status: CampaignStatus.ACTIVE,
@@ -31,15 +41,26 @@ export async function evaluateCheckoutPromotions(campaignReader: CampaignReader 
         { OR: [{ endsAt: null }, { endsAt: { gte: now } }] },
       ],
     },
+    include: { targetCustomerSegment: { select: { status: true } } },
     orderBy: [{ priority: 'desc' }, { createdAt: 'asc' }],
     take: 100,
   });
+  const customerSegmentIds = await resolveCustomerSegmentIds(source.customerSegmentMember, input);
   const selected = new Set(input.selectedPromotionIds ?? []);
   const candidates = campaigns
     .filter((campaign) => !campaign.usageLimit || campaign.usageCount < campaign.usageLimit)
     .filter((campaign) => selected.size === 0 || selected.has(campaign.id) || campaign.promoCode?.toUpperCase() === normalizedCode)
     .filter((campaign) => campaign.type !== CampaignType.PROMO_CODE || (normalizedCode && campaign.promoCode?.toUpperCase() === normalizedCode));
-  const discounts = candidates
+  const eligibility = candidates.map((campaign) => ({ campaign, eligible: isCampaignEligibleForCustomer(campaign, input.resolvedCustomerId, customerSegmentIds) }));
+  if (normalizedCode && eligibility.some((item) => item.campaign.promoCode?.toUpperCase() === normalizedCode) && !eligibility.some((item) => item.campaign.promoCode?.toUpperCase() === normalizedCode && item.eligible)) {
+    throw new BadRequestException({
+      code: 'PROMO_CODE_NOT_ELIGIBLE_FOR_CUSTOMER',
+      message: 'This customer is not eligible for this promotion.',
+    });
+  }
+  const discounts = eligibility
+    .filter((item) => item.eligible)
+    .map((item) => item.campaign)
     .map((campaign) => calculatePromotionDiscount(campaign, input))
     .filter((result) => result.discountAmount.greaterThan(0));
   if (discounts.length === 0) {
@@ -55,9 +76,36 @@ export async function evaluateCheckoutPromotions(campaignReader: CampaignReader 
       name: result.campaign.name,
       type: result.campaign.type,
       promoCode: result.campaign.promoCode,
+      customerEligibilityMode: result.campaign.customerEligibilityMode,
+      targetCustomerSegmentId: result.campaign.targetCustomerSegmentId,
       discountAmount: toMoneyNumber(result.discountAmount),
     })),
   };
+}
+
+async function resolveCustomerSegmentIds(segmentMemberReader: SegmentMemberReader | undefined, input: PromotionEvaluationInput) {
+  if (!input.resolvedCustomerId || !segmentMemberReader) return new Set<string>();
+  const rows = await segmentMemberReader.findMany({
+    where: {
+      storeId: input.storeId,
+      customerId: input.resolvedCustomerId,
+      segment: { status: CustomerSegmentStatus.ACTIVE },
+    },
+    select: { segmentId: true },
+    take: 100,
+  });
+  return new Set(rows.map((row) => row.segmentId));
+}
+
+function isCampaignEligibleForCustomer(campaign: PromotionCampaign, customerId: string | null | undefined, customerSegmentIds: Set<string>) {
+  if (campaign.customerEligibilityMode === CustomerEligibilityMode.ALL_CUSTOMERS) return true;
+  if (!customerId) return false;
+  if (campaign.customerEligibilityMode === CustomerEligibilityMode.CUSTOMER_ONLY) return true;
+  if (campaign.customerEligibilityMode === CustomerEligibilityMode.SEGMENT_ONLY) {
+    if (!campaign.targetCustomerSegmentId || campaign.targetCustomerSegment?.status !== CustomerSegmentStatus.ACTIVE) return false;
+    return customerSegmentIds.has(campaign.targetCustomerSegmentId);
+  }
+  return true;
 }
 
 function calculatePromotionDiscount(campaign: Campaign, input: { subtotal: Decimal; items: Array<{ productId: string; productCategorySnapshot: string | null; lineTotal: Decimal }> }) {

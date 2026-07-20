@@ -193,6 +193,22 @@ enum PromotionStackingPolicy {
   EXCLUSIVE
 }
 
+enum CustomerSegmentStatus {
+  ACTIVE
+  PAUSED
+  ARCHIVED
+}
+
+enum CustomerSegmentType {
+  SMART_RULE
+}
+
+enum CustomerEligibilityMode {
+  ALL_CUSTOMERS
+  CUSTOMER_ONLY
+  SEGMENT_ONLY
+}
+
 enum CatalogStatus {
   ACTIVE
   INACTIVE
@@ -279,6 +295,8 @@ model Store {
   aiMessages AiMessage[]
   aiExecutions AiExecution[]
   customers Customer[]
+  customerSegments CustomerSegment[]
+  customerSegmentMembers CustomerSegmentMember[]
   loyaltyPointLedgers LoyaltyPointLedger[]
   createdAt DateTime   @default(now())
   updatedAt DateTime   @updatedAt
@@ -523,6 +541,7 @@ model Customer {
   totalSpend      Decimal        @default(0) @db.Decimal(10, 2)
   pointsBalance   Int            @default(0)
   orders          Order[]
+  segmentMemberships CustomerSegmentMember[]
   pointLedgers    LoyaltyPointLedger[]
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
@@ -553,6 +572,44 @@ model LoyaltyPointLedger {
   @@index([customerId])
   @@index([orderId])
   @@index([storeId, createdAt])
+  @@allow("all", true)
+}
+
+model CustomerSegment {
+  id              String                @id @default(cuid())
+  storeId         String
+  store           Store                 @relation(fields: [storeId], references: [id])
+  name            String
+  description     String?               @db.Text
+  status          CustomerSegmentStatus @default(ACTIVE)
+  type            CustomerSegmentType   @default(SMART_RULE)
+  ruleJson        Json
+  lastEvaluatedAt DateTime?
+  memberCount     Int                   @default(0)
+  members         CustomerSegmentMember[]
+  campaigns       Campaign[]
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  @@index([storeId])
+  @@index([storeId, status])
+  @@allow("all", true)
+}
+
+model CustomerSegmentMember {
+  id           String          @id @default(cuid())
+  storeId      String
+  store        Store           @relation(fields: [storeId], references: [id])
+  segmentId    String
+  segment      CustomerSegment @relation(fields: [segmentId], references: [id])
+  customerId   String
+  customer     Customer        @relation(fields: [customerId], references: [id])
+  matchedAt    DateTime        @default(now())
+  ruleSnapshot Json?
+
+  @@unique([segmentId, customerId])
+  @@index([storeId])
+  @@index([customerId])
   @@allow("all", true)
 }
 
@@ -912,6 +969,9 @@ model Campaign {
   promoCode      String?
   productId      String?
   categoryName   String?
+  customerEligibilityMode CustomerEligibilityMode @default(ALL_CUSTOMERS)
+  targetCustomerSegmentId String?
+  targetCustomerSegment CustomerSegment? @relation(fields: [targetCustomerSegmentId], references: [id])
   startsAt       DateTime?
   endsAt         DateTime?
   priority       Int            @default(0)
@@ -929,6 +989,7 @@ model Campaign {
   @@index([storeId])
   @@index([storeId, status])
   @@index([storeId, promoCode])
+  @@index([targetCustomerSegmentId])
   @@allow("all", true)
 }
 

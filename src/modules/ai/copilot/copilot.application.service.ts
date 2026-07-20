@@ -162,6 +162,8 @@ function buildBackendEvidence(context: Record<string, any>): CopilotEvidence[] {
     { label: 'Refund rate', value: numberOrNull(refunds.refundRate) },
     { label: 'New customers', value: numberOrNull(customers.newCustomers) },
     { label: 'Repeat purchase rate', value: numberOrNull(customers.repeatPurchaseRate) },
+    { label: 'Active customer segments', value: numberOrNull(customers.activeSegmentCount) },
+    { label: 'Customer campaign usage', value: numberOrNull(customers.customerCampaignUsageCount) },
     topProduct ? { label: `Top product: ${topProduct.name}`, value: numberOrNull(topProduct.netSales), changePercent: numberOrNull(topProduct.changePercent) } : null,
     kitchen ? { label: `Kitchen: ${kitchen.stationName}`, value: numberOrNull(kitchen.avgPrepTimeMinutes) } : null,
   ];
