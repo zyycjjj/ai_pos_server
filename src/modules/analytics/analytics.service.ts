@@ -4,6 +4,7 @@ import { CustomerEligibilityMode, CustomerSegmentStatus, LoyaltyPointLedgerType 
 import { StoreContextService } from '@/common/store-context.service';
 import { toMoneyNumber } from '@/common/utils/money';
 import { PrismaService } from '@/prisma/prisma.service';
+import { ReportsService } from '@/modules/reports/reports.service';
 
 import { buildInsightSignals, compareSalesMetrics } from './domain/analytics-math';
 import { AnalyticsPeriodError, comparisonPeriod, resolvePeriod, resolvePresetDates } from './domain/analytics-time';
@@ -21,6 +22,7 @@ export class AnalyticsService {
     private readonly performance: PerformanceAnalyticsRepository,
     private readonly operations: OperationsAnalyticsRepository,
     private readonly prisma: PrismaService,
+    private readonly reportsService?: ReportsService,
   ) {}
 
   async overview(query: AnalyticsQueryDto) {
@@ -113,7 +115,7 @@ export class AnalyticsService {
 
   async aiContext(query: AnalyticsQueryDto) {
     const context = await this.context(query);
-    const [current, previous, daily, hourly, products, categories, modifiers, shifts, kitchen, payments, customers] = await Promise.all([
+    const [current, previous, daily, hourly, products, categories, modifiers, shifts, kitchen, payments, customers, businessReportSummary] = await Promise.all([
       this.sales.metric(context.store.id, context.period),
       this.sales.metric(context.store.id, context.previousPeriod),
       this.sales.daily(context.store.id, context.period),
@@ -125,6 +127,7 @@ export class AnalyticsService {
       this.operations.kitchen(context.store.id, context.period),
       this.sales.paymentMix(context.store.id, context.period),
       this.customerAnalytics(context.store.id, context.period),
+      this.reportsService?.reportSummaryContext({ from: context.period.from, to: context.period.to, timezone: context.period.timezone, preset: 'custom' }) ?? Promise.resolve(null),
     ]);
     const [refunds, previousRefunds] = await Promise.all([
       this.operations.refunds(context.store.id, context.period, current.grossSales, current.paidOrderCount),
@@ -149,6 +152,7 @@ export class AnalyticsService {
       kitchen: kitchen.slice(0, 10),
       payments,
       customers,
+      businessReportSummary,
       signals,
       coverage: { sales: true, products: true, modifiers: true, refunds: true, shifts: true, kitchen: true, payments: true, customers: true, inventory: false },
     };

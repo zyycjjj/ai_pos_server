@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 
+import { ReportsModule } from '@/modules/reports/reports.module';
+
 import { AnalyticsController } from './analytics.controller';
 import { AnalyticsService } from './analytics.service';
 import { OperationsAnalyticsRepository } from './repositories/operations-analytics.repository';
@@ -7,6 +9,7 @@ import { PerformanceAnalyticsRepository } from './repositories/performance-analy
 import { SalesAnalyticsRepository } from './repositories/sales-analytics.repository';
 
 @Module({
+  imports: [ReportsModule],
   controllers: [AnalyticsController],
   providers: [AnalyticsService, SalesAnalyticsRepository, PerformanceAnalyticsRepository, OperationsAnalyticsRepository],
   exports: [AnalyticsService],
