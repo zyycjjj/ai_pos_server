@@ -28,12 +28,14 @@ async function main() {
     update: {
       name: 'AI-POS Demo Store',
       active: true,
+      kitchenPrintMode: 'ORDER_TICKET',
     },
     create: {
       name: 'AI-POS Demo Store',
       code: 'demo-store',
       timezone: 'Asia/Shanghai',
       currency: 'USD',
+      kitchenPrintMode: 'ORDER_TICKET',
     },
   });
 
@@ -41,6 +43,7 @@ async function main() {
     { email: 'owner@aipos.test', name: 'Demo Owner', role: 'OWNER' as const },
     { email: 'manager@aipos.test', name: 'Demo Manager', role: 'MANAGER' as const },
     { email: 'cashier@aipos.test', name: 'Demo Cashier', role: 'CASHIER' as const },
+    { email: 'kitchen@aipos.test', name: 'Demo Kitchen', role: 'KITCHEN' as const },
   ];
 
   for (const staff of demoStaff) {

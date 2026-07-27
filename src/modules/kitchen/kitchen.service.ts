@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { KitchenStationStatus, KitchenTicketStatus, Prisma } from '@prisma/client';
+import { KitchenPrintMode, KitchenStationStatus, KitchenTicketStatus, Prisma } from '@prisma/client';
 
 import { StoreContextService } from '@/common/store-context.service';
 import { toMoneyNumber } from '@/common/utils/money';
@@ -25,6 +25,23 @@ export class KitchenService {
       orderBy: [{ status: 'asc' }, { sortOrder: 'asc' }, { name: 'asc' }],
     });
     return stations.map((station) => this.presentStation(station));
+  }
+
+  async getSettings() {
+    const store = await this.prisma.store.findUniqueOrThrow({
+      where: { id: this.getStoreId() },
+      select: { kitchenPrintMode: true },
+    });
+    return { printMode: store.kitchenPrintMode };
+  }
+
+  async updatePrintMode(mode: KitchenPrintMode) {
+    const store = await this.prisma.store.update({
+      where: { id: this.getStoreId() },
+      data: { kitchenPrintMode: mode },
+      select: { kitchenPrintMode: true },
+    });
+    return { printMode: store.kitchenPrintMode };
   }
 
   async createStation(dto: UpsertKitchenStationDto) {
@@ -92,7 +109,7 @@ export class KitchenService {
       where: {
         storeId,
         ...(query.stationId ? { stationId: query.stationId } : {}),
-        ...(query.status ? { status: query.status } : { status: { in: ACTIVE_TICKET_STATUSES } }),
+        ...(query.status ? { status: this.toStoredStatus(query.status) } : { status: { in: ACTIVE_TICKET_STATUSES } }),
       },
       include: this.ticketInclude(),
       orderBy: [{ createdAt: 'asc' }],
@@ -158,12 +175,16 @@ export class KitchenService {
 
   async generateTicketsForOrder(
     tx: Prisma.TransactionClient,
-    input: { storeId: string; orderId: string; createdByUserId?: string },
+    input: { storeId: string; orderId: string; createdByUserId?: string; orderItemIds?: string[] },
   ) {
+    const store = tx.store?.findUnique
+      ? await tx.store.findUnique({ where: { id: input.storeId }, select: { kitchenPrintMode: true } })
+      : { kitchenPrintMode: KitchenPrintMode.ORDER_TICKET };
     const order = await tx.order.findFirst({
       where: { id: input.orderId, storeId: input.storeId },
       include: {
         items: {
+          where: input.orderItemIds ? { id: { in: input.orderItemIds } } : undefined,
           include: {
             product: {
               include: {
@@ -190,11 +211,65 @@ export class KitchenService {
 
     const tickets = [];
     for (const group of groups.values()) {
-      const existing = await tx.kitchenTicket.findUnique({
-        where: { storeId_orderId_stationId: { storeId: input.storeId, orderId: input.orderId, stationId: group.stationId } },
-        include: this.ticketInclude(),
-      });
+      if (store?.kitchenPrintMode === KitchenPrintMode.ITEM_TICKET) {
+        for (const item of group.items) {
+          const ticket = await tx.kitchenTicket.create({
+            data: {
+              storeId: input.storeId,
+              orderId: input.orderId,
+              stationId: group.stationId,
+              ticketNumber: await this.createTicketNumber(tx, input.storeId, group.stationId),
+              createdByUserId: input.createdByUserId,
+              items: {
+                create: {
+                  storeId: input.storeId,
+                  orderItemId: item.id,
+                  productId: item.productId,
+                  productNameSnapshot: item.productNameSnapshot ?? item.product.name,
+                  quantity: item.quantity,
+                  modifiers: item.modifiers ?? Prisma.JsonNull,
+                },
+              },
+            },
+            include: this.ticketInclude(),
+          });
+          tickets.push(ticket);
+        }
+        continue;
+      }
+
+      const existing = tx.kitchenTicket.findFirst
+        ? await tx.kitchenTicket.findFirst({
+            where: { storeId: input.storeId, orderId: input.orderId, stationId: group.stationId, status: KitchenTicketStatus.NEW },
+            include: this.ticketInclude(),
+          })
+        : await (tx.kitchenTicket as any).findUnique({
+            where: { storeId_orderId_stationId: { storeId: input.storeId, orderId: input.orderId, stationId: group.stationId } },
+            include: this.ticketInclude(),
+          });
       if (existing) {
+        const existingOrderItemIds = new Set(existing.items.map((item: { orderItemId: string }) => item.orderItemId));
+        const newItems = group.items.filter((item) => !existingOrderItemIds.has(item.id));
+        if (newItems.length > 0 && existing.status === KitchenTicketStatus.NEW) {
+          const updated = await tx.kitchenTicket.update({
+            where: { id: existing.id },
+            data: {
+              items: {
+                create: newItems.map((item) => ({
+                  storeId: input.storeId,
+                  orderItemId: item.id,
+                  productId: item.productId,
+                  productNameSnapshot: item.productNameSnapshot ?? item.product.name,
+                  quantity: item.quantity,
+                  modifiers: item.modifiers ?? Prisma.JsonNull,
+                })),
+              },
+            },
+            include: this.ticketInclude(),
+          });
+          tickets.push(updated);
+          continue;
+        }
         tickets.push(existing);
         continue;
       }
@@ -356,7 +431,7 @@ export class KitchenService {
     return {
       id: ticket.id,
       ticketNumber: ticket.ticketNumber,
-      status: ticket.status,
+      status: this.toPublicStatus(ticket.status),
       station: this.presentStation(ticket.station),
       order: {
         id: ticket.order.id,
@@ -374,7 +449,7 @@ export class KitchenService {
         quantity: item.quantity,
         modifiers: item.modifiers ?? [],
         notes: item.notes,
-        status: item.status,
+        status: this.toPublicStatus(item.status),
       })),
       startedAt: ticket.startedAt?.toISOString() ?? null,
       readyAt: ticket.readyAt?.toISOString() ?? null,
@@ -422,6 +497,14 @@ export class KitchenService {
       throw new BadRequestException('Kitchen station code is required.');
     }
     return trimmed;
+  }
+
+  private toStoredStatus(status: ListKitchenTicketsDto['status']) {
+    return status === 'IN_PROGRESS' ? KitchenTicketStatus.PREPARING : status;
+  }
+
+  private toPublicStatus(status: KitchenTicketStatus) {
+    return status === KitchenTicketStatus.PREPARING ? 'IN_PROGRESS' : status;
   }
 
   private getStoreId() {

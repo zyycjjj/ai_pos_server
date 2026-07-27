@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import { CustomerStatus, ModifierOptionStatus, OrderAuditAction, OrderStatus, OrderType, PaymentMethod, PrintStatus, Prisma, ProductAvailabilityStatus, RefundStatus, StoreRole } from '@prisma/client';
+import { CustomerStatus, DiningTableStatus, ModifierOptionStatus, OrderAuditAction, OrderStatus, OrderType, PaymentMethod, PrintStatus, Prisma, ProductAvailabilityStatus, RefundStatus, StoreRole } from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
 import { multiplyMoney, toMoneyNumber } from '@/common/utils/money';
@@ -79,6 +79,7 @@ export class CheckoutService {
     const customerInput = this.pickCustomerInput(dto);
     const customer = await this.resolveCustomerBeforePricing(storeId, customerInput);
     const orderDraft = await this.buildOrderDraft(dto, currentUser, customer?.customerId);
+    await this.assertDineInTableAvailable(orderDraft.orderType, orderDraft.tableId);
     const total = orderDraft.total;
     const paymentResult = validatePaymentLines(dto.payments, total);
 
@@ -126,6 +127,7 @@ export class CheckoutService {
     const customerInput = this.pickCustomerInput(dto);
     const customer = await this.resolveCustomerBeforePricing(storeId, customerInput);
     const orderDraft = await this.buildOrderDraft(dto, currentUser, customer?.customerId);
+    await this.assertDineInTableAvailable(orderDraft.orderType, orderDraft.tableId);
     const order = await this.prisma.$transaction(
       async (tx) => {
         const pickupNumber = await this.createPickupNumber(tx);
@@ -138,6 +140,7 @@ export class CheckoutService {
             customerPhoneSnapshot: customer?.customerPhoneSnapshot,
             customerNameSnapshot: customer?.customerNameSnapshot,
             orderType: orderDraft.orderType,
+            tableId: orderDraft.tableId,
             status: OrderStatus.HELD,
             currency: orderDraft.currency,
             subtotal: orderDraft.subtotal,
@@ -171,6 +174,9 @@ export class CheckoutService {
             operatorId: currentUser?.id,
           },
         });
+        if (orderDraft.tableId) {
+          await tx.diningTable.update({ where: { id: orderDraft.tableId }, data: { status: DiningTableStatus.OCCUPIED, currentOrderId: created.id } });
+        }
         return created;
       },
       { maxWait: 30000, timeout: 60000 },
@@ -262,6 +268,9 @@ export class CheckoutService {
           },
           include: this.orderListInclude(),
         });
+        if (paid.tableId) {
+          await tx.diningTable.update({ where: { id: paid.tableId }, data: { status: DiningTableStatus.DIRTY, currentOrderId: null } });
+        }
         if (activeShift?.id && this.shiftsService) {
           await this.shiftsService.recordCashSaleMovements(tx, {
             storeId: this.getStoreId(),
@@ -337,6 +346,9 @@ export class CheckoutService {
           orderId: id,
           reason: dto.reason,
         });
+        if (order.tableId) {
+          await tx.diningTable.update({ where: { id: order.tableId }, data: { status: DiningTableStatus.AVAILABLE, currentOrderId: null } });
+        }
         return updatedOrder;
       },
       { maxWait: 30000, timeout: 60000 },
@@ -382,6 +394,9 @@ export class CheckoutService {
           orderId: id,
           reason: dto.reason,
         });
+        if (order.tableId) {
+          await tx.diningTable.update({ where: { id: order.tableId }, data: { status: DiningTableStatus.AVAILABLE, currentOrderId: null } });
+        }
         return updatedOrder;
       },
       { maxWait: 30000, timeout: 60000 },
@@ -574,6 +589,7 @@ export class CheckoutService {
     storeId: string;
     currency: string;
     orderType: OrderType;
+    tableId?: string;
     subtotal: Decimal;
     adjustment: Decimal;
     promotionDiscountAmount: Decimal;
@@ -629,6 +645,7 @@ export class CheckoutService {
                 customerPhoneSnapshot: customer?.customerPhoneSnapshot,
                 customerNameSnapshot: customer?.customerNameSnapshot,
                 orderType: input.orderType,
+                tableId: input.tableId,
                 status: OrderStatus.PAID,
                 paymentMethod: input.paymentResult.summaryMethod,
                 currency: input.currency,
@@ -655,6 +672,9 @@ export class CheckoutService {
               },
               include: this.orderListInclude(),
             });
+            if (input.tableId) {
+              await tx.diningTable.update({ where: { id: input.tableId }, data: { status: DiningTableStatus.DIRTY, currentOrderId: null } });
+            }
             for (const promotion of input.appliedPromotions) {
               await tx.campaign.update({
                 where: { id: promotion.id },
@@ -726,7 +746,7 @@ export class CheckoutService {
   }
 
   private async buildOrderDraft(
-    dto: Pick<CreateOrderDto, 'items' | 'orderType' | 'currency' | 'adjustment' | 'tax' | 'taxRate' | 'serviceCharge' | 'serviceChargeRate' | 'tip' | 'promoCode' | 'selectedPromotionIds'>,
+    dto: Pick<CreateOrderDto, 'items' | 'orderType' | 'tableId' | 'currency' | 'adjustment' | 'tax' | 'taxRate' | 'serviceCharge' | 'serviceChargeRate' | 'tip' | 'promoCode' | 'selectedPromotionIds'>,
     currentUser?: AuthRequestUser,
     resolvedCustomerId?: string | null,
     options: { includePreviewDetails?: boolean } = {},
@@ -734,11 +754,11 @@ export class CheckoutService {
     const storeId = this.getStoreId();
     const productIds = [...new Set(dto.items.map((item) => item.productId))];
     const products = await this.prisma.product.findMany({
-      where: { id: { in: productIds }, storeId, isActive: true, availabilityStatus: ProductAvailabilityStatus.AVAILABLE },
+      where: { id: { in: productIds }, storeId },
       include: {
         modifierGroups: {
           where: { status: 'ACTIVE' },
-          include: { options: { where: { status: { not: ModifierOptionStatus.INACTIVE } }, orderBy: { displayOrder: 'asc' } } },
+          include: { options: { orderBy: { displayOrder: 'asc' } } },
           orderBy: { displayOrder: 'asc' },
         },
       },
@@ -754,6 +774,7 @@ export class CheckoutService {
       if (!product) {
         throw new BadRequestException(`Product not found, inactive, or sold out: ${item.productId}`);
       }
+      this.assertProductOrderable(product);
       const selectedModifiers = this.resolveSelectedModifiers(product, item.modifiers ?? []);
       const unitPrice = selectedModifiers.reduce((price, modifier) => price.plus(modifier.priceDelta), product.price).toDecimalPlaces(2);
       return {
@@ -785,6 +806,7 @@ export class CheckoutService {
     return {
       currency: dto.currency ?? products[0]?.currency ?? 'USD',
       orderType: (dto.orderType ?? OrderType.TAKEAWAY) as OrderType,
+      tableId: dto.orderType === OrderType.DINE_IN ? dto.tableId : undefined,
       subtotal,
       adjustment: pricing.adjustment,
       promotionDiscountAmount: pricing.promotionDiscountAmount,
@@ -867,6 +889,37 @@ export class CheckoutService {
     }
   }
 
+  private assertProductOrderable(product: Pick<ProductWithModifiers, 'id' | 'name' | 'isActive' | 'availabilityStatus'>) {
+    if (product.isActive === false) {
+      throw new BadRequestException({ code: 'PRODUCT_INACTIVE', message: `Product is inactive: ${product.name}` });
+    }
+    if (product.availabilityStatus === ProductAvailabilityStatus.SOLD_OUT) {
+      throw new BadRequestException({ code: 'PRODUCT_SOLD_OUT', message: `Product is sold out: ${product.name}` });
+    }
+  }
+
+  private async assertDineInTableAvailable(orderType: OrderType, tableId?: string) {
+    if (orderType !== OrderType.DINE_IN) {
+      return;
+    }
+    if (!tableId) {
+      throw new BadRequestException('Dine-in orders require a table.');
+    }
+    const table = await this.prisma.diningTable.findFirst({
+      where: { id: tableId, storeId: this.getStoreId() },
+      include: { currentOrder: true },
+    });
+    if (!table) {
+      throw new BadRequestException('Dining table not found.');
+    }
+    if (table.status === DiningTableStatus.INACTIVE) {
+      throw new BadRequestException('Dining table is inactive.');
+    }
+    if (table.currentOrder && (table.currentOrder.status === OrderStatus.OPEN || table.currentOrder.status === OrderStatus.HELD)) {
+      throw new BadRequestException('Dining table already has an active order.');
+    }
+  }
+
   private resolveSelectedModifiers(product: ProductWithModifiers, selections: NonNullable<CreateOrderDto['items'][number]['modifiers']>) {
     const selectedByGroup = new Map(selections.map((selection) => [selection.groupId, selection.optionIds]));
     const snapshots: Array<{
@@ -898,8 +951,11 @@ export class CheckoutService {
         if (!option) {
           throw new BadRequestException(`Modifier option does not belong to product: ${optionId}`);
         }
-        if (option.status !== ModifierOptionStatus.ACTIVE) {
-          throw new BadRequestException(`Modifier option is not available: ${option.name}`);
+        if (option.status === ModifierOptionStatus.INACTIVE) {
+          throw new BadRequestException({ code: 'MODIFIER_OPTION_INACTIVE', message: `Modifier option is not available: ${option.name}` });
+        }
+        if (option.status === ModifierOptionStatus.SOLD_OUT) {
+          throw new BadRequestException({ code: 'MODIFIER_OPTION_SOLD_OUT', message: `Modifier option is not available: ${option.name}` });
         }
         snapshots.push({
           groupId: group.id,

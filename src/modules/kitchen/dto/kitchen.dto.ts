@@ -8,8 +8,8 @@ export class ListKitchenTicketsDto {
   stationId?: string;
 
   @IsOptional()
-  @IsIn(['NEW', 'PREPARING', 'READY', 'COMPLETED', 'CANCELLED'])
-  status?: 'NEW' | 'PREPARING' | 'READY' | 'COMPLETED' | 'CANCELLED';
+  @IsIn(['NEW', 'PREPARING', 'IN_PROGRESS', 'READY', 'COMPLETED', 'CANCELLED'])
+  status?: 'NEW' | 'PREPARING' | 'IN_PROGRESS' | 'READY' | 'COMPLETED' | 'CANCELLED';
 
   @IsOptional()
   @Type(() => Number)
@@ -48,4 +48,9 @@ export class CancelKitchenTicketDto {
   @IsString()
   @MaxLength(500)
   reason!: string;
+}
+
+export class UpdateKitchenPrintModeDto {
+  @IsIn(['ORDER_TICKET', 'ITEM_TICKET'])
+  mode!: 'ORDER_TICKET' | 'ITEM_TICKET';
 }

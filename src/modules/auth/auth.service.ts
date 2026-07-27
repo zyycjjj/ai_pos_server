@@ -129,8 +129,12 @@ export class AuthService {
   }
 
   private createPermissions(role: StoreRole) {
+    if (role === StoreRole.KITCHEN) {
+      return ['pos.kitchen.read', 'pos.kitchen.manage', 'pos.settings.read'];
+    }
+
     if (role !== StoreRole.OWNER && role !== StoreRole.MANAGER) {
-      return [];
+      return ['pos.sell', 'pos.orders', 'pos.tables', 'pos.settings.read'];
     }
 
     return [
@@ -139,6 +143,12 @@ export class AuthService {
       'admin.staff.manage',
       'admin.products.read',
       'admin.products.manage',
+      'admin.kitchen.read',
+      'admin.kitchen.manage',
+      'admin.printers.manage',
+      'admin.reports.read',
+      'pos.kitchen.read',
+      'pos.kitchen.manage',
       'admin.campaigns.read',
       'admin.ai.read',
     ];

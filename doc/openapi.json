@@ -144,12 +144,20 @@
         "type": "object",
         "additionalProperties": true
       },
+      "KitchenPrintMode": {
+        "type": "string",
+        "enum": [
+          "ORDER_TICKET",
+          "ITEM_TICKET"
+        ]
+      },
       "StoreRole": {
         "type": "string",
         "enum": [
           "OWNER",
           "MANAGER",
           "CASHIER",
+          "KITCHEN",
           "STAFF"
         ]
       },
@@ -489,6 +497,9 @@
           "active": {
             "type": "boolean"
           },
+          "kitchenPrintMode": {
+            "$ref": "#/components/schemas/KitchenPrintMode"
+          },
           "users": {
             "type": "array",
             "items": {
@@ -660,6 +671,7 @@
           "timezone",
           "currency",
           "active",
+          "kitchenPrintMode",
           "createdAt",
           "updatedAt"
         ]
@@ -4239,6 +4251,9 @@
           "active": {
             "type": "boolean"
           },
+          "kitchenPrintMode": {
+            "$ref": "#/components/schemas/KitchenPrintMode"
+          },
           "createdAt": {
             "type": "string",
             "format": "date-time"
@@ -4284,6 +4299,7 @@
           "timezone",
           "currency",
           "active",
+          "kitchenPrintMode",
           "createdAt",
           "updatedAt"
         ]
@@ -10111,6 +10127,9 @@
           "active": {
             "type": "integer"
           },
+          "kitchenPrintMode": {
+            "type": "integer"
+          },
           "createdAt": {
             "type": "integer"
           },
@@ -10128,6 +10147,7 @@
           "timezone",
           "currency",
           "active",
+          "kitchenPrintMode",
           "createdAt",
           "updatedAt",
           "_all"
@@ -10193,6 +10213,16 @@
               },
               {
                 "type": "boolean"
+              }
+            ]
+          },
+          "kitchenPrintMode": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenPrintMode"
               }
             ]
           },
@@ -10280,6 +10310,16 @@
               },
               {
                 "type": "boolean"
+              }
+            ]
+          },
+          "kitchenPrintMode": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/KitchenPrintMode"
               }
             ]
           },

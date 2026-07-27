@@ -79,6 +79,11 @@ export class CreateOrderDto {
   @IsIn(['DINE_IN', 'TAKEAWAY', 'PICKUP'])
   orderType?: 'DINE_IN' | 'TAKEAWAY' | 'PICKUP';
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  tableId?: string;
+
   @ApiProperty({ type: [CreateOrderItemDto] })
   @IsArray()
   @ArrayMinSize(1)
@@ -176,6 +181,11 @@ export class CheckoutPreviewDto {
   @IsString()
   @IsIn(['DINE_IN', 'TAKEAWAY', 'PICKUP'])
   orderType?: 'DINE_IN' | 'TAKEAWAY' | 'PICKUP';
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  tableId?: string;
 
   @ApiProperty({ type: [CreateOrderItemDto] })
   @IsArray()

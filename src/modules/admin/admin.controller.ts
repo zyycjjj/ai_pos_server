@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { StoreRole } from '@prisma/client';
+import { KitchenPrintMode, StoreRole } from '@prisma/client';
 
 import { Roles } from '@/modules/auth/roles.decorator';
 import { RolesGuard } from '@/modules/auth/roles.guard';
@@ -27,6 +27,7 @@ import {
   CancelKitchenTicketDto,
   ListKitchenTicketsDto,
   UpdateKitchenStationStatusDto,
+  UpdateKitchenPrintModeDto,
   UpsertKitchenStationDto,
 } from '../kitchen/dto/kitchen.dto';
 
@@ -63,6 +64,18 @@ export class AdminController {
   @ApiOperation({ summary: 'List kitchen stations for Admin management.' })
   listKitchenStations() {
     return this.kitchenService.listStations();
+  }
+
+  @Get('kitchen/settings')
+  @ApiOperation({ summary: 'Read Admin kitchen configuration settings.' })
+  getKitchenSettings() {
+    return this.kitchenService.getSettings();
+  }
+
+  @Patch('kitchen/settings/print-mode')
+  @ApiOperation({ summary: 'Configure kitchen ticket print mode.' })
+  updateKitchenPrintMode(@Body() dto: UpdateKitchenPrintModeDto) {
+    return this.kitchenService.updatePrintMode(dto.mode as KitchenPrintMode);
   }
 
   @Post('kitchen/stations')

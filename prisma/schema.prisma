@@ -96,6 +96,11 @@ enum KitchenTicketStatus {
   CANCELLED
 }
 
+enum KitchenPrintMode {
+  ORDER_TICKET
+  ITEM_TICKET
+}
+
 enum PrinterType {
   RECEIPT
   KITCHEN
@@ -158,6 +163,7 @@ enum StoreRole {
   OWNER
   MANAGER
   CASHIER
+  KITCHEN
   STAFF
 }
 
@@ -262,6 +268,7 @@ model Store {
   timezone               String                  @default("Asia/Shanghai")
   currency               String                  @default("USD")
   active                 Boolean                 @default(true)
+  kitchenPrintMode       KitchenPrintMode        @default(ORDER_TICKET)
   users                  StoreUser[]
   categories             Category[]
   diningAreas            DiningArea[]
@@ -791,7 +798,6 @@ model KitchenTicket {
   createdAt       DateTime            @default(now())
   updatedAt       DateTime            @updatedAt()
 
-  @@unique([storeId, orderId, stationId])
   @@index([storeId])
   @@index([storeId, createdAt])
   @@index([orderId])

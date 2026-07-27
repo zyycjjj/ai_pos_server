@@ -216,6 +216,12 @@ export class PrintService {
 
   async printOrderReceipt(orderId: string, currentUser?: AuthRequestUser) {
     const route = await this.resolveStoreRoute(PrintDocumentType.CUSTOMER_RECEIPT);
+    if (!route) {
+      throw new BadRequestException({
+        code: 'PRINTER_ROUTE_NOT_CONFIGURED',
+        message: 'No active customer receipt printer route is configured.',
+      });
+    }
     const payload = await this.receiptsService.getReceiptForOrder(orderId);
     return this.createJob({
       printerId: route?.printerId,
@@ -248,6 +254,12 @@ export class PrintService {
   async printKitchenTicket(ticketId: string, currentUser?: AuthRequestUser) {
     const payload = await this.buildKitchenTicketPayload(ticketId);
     const route = await this.resolveKitchenRoute(payload.station.id);
+    if (!route) {
+      throw new BadRequestException({
+        code: 'PRINTER_ROUTE_NOT_CONFIGURED',
+        message: `No active kitchen printer route is configured for ${payload.station.name}.`,
+      });
+    }
     return this.createJob({
       printerId: route?.printerId,
       documentType: PrintDocumentType.KITCHEN_TICKET,

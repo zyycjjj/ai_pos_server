@@ -70,6 +70,14 @@ export class AddTableItemsDto {
   items: CreateOrderItemDto[];
 }
 
+export class UpdateTableOrderItemDto {
+  @ApiProperty({ minimum: 1 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  quantity: number;
+}
+
 export class CheckoutTableDto {
   @ApiProperty({ type: [CreateOrderPaymentLineDto] })
   @IsArray()

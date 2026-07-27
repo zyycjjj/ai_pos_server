@@ -177,7 +177,7 @@ function createHarness(options: { targetStatus?: string; sourceOrderStatus?: str
   };
 
   return {
-    service: new TablesService(prisma as any, {} as any, { createAutoJobsForOrder: async () => undefined } as any, {
+    service: new TablesService(prisma as any, {} as any, { createAutoJobsForOrder: async () => undefined } as any, { generateTicketsForOrder: async () => [] } as any, {
       resolveOrderCustomer: async () => null,
       recordPaidOrder: async () => ({ pointsEarned: 0, balanceAfter: null }),
     } as any),

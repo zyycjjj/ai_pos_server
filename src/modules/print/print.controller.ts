@@ -7,7 +7,7 @@ import { Roles } from '@/modules/auth/roles.decorator';
 import { RolesGuard } from '@/modules/auth/roles.guard';
 import type { AuthRequestUser } from '@/modules/auth/auth.types';
 
-import { PrintFailDto, ReprintDto } from './dto/print.dto';
+import { PrintFailDto, ReprintDto, UpsertPrinterDto } from './dto/print.dto';
 import { PrintService } from './print.service';
 
 @ApiTags('print')
@@ -15,6 +15,27 @@ import { PrintService } from './print.service';
 @UseGuards(RolesGuard)
 export class PrintController {
   constructor(private readonly printService: PrintService) {}
+
+  @Get('printers')
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER, StoreRole.KITCHEN)
+  @ApiOperation({ summary: 'List printers for POS device setup.' })
+  listPrinters() {
+    return this.printService.listPrinters();
+  }
+
+  @Post('printers')
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
+  @ApiOperation({ summary: 'Create a POS printer from device settings.' })
+  createPrinter(@Body() dto: UpsertPrinterDto) {
+    return this.printService.createPrinter(dto);
+  }
+
+  @Post('printers/:id/test')
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER, StoreRole.KITCHEN)
+  @ApiOperation({ summary: 'Create a POS test print job.' })
+  testPrint(@Param('id') id: string, @CurrentUser() currentUser: AuthRequestUser) {
+    return this.printService.testPrint(id, currentUser);
+  }
 
   @Post('orders/:orderId/receipt')
   @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
@@ -31,7 +52,7 @@ export class PrintController {
   }
 
   @Post('kitchen-tickets/:ticketId')
-  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.STAFF)
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.KITCHEN, StoreRole.STAFF)
   @ApiOperation({ summary: 'Create a kitchen ticket print job.' })
   printKitchenTicket(@Param('ticketId') ticketId: string, @CurrentUser() currentUser: AuthRequestUser) {
     return this.printService.printKitchenTicket(ticketId, currentUser);
@@ -52,7 +73,7 @@ export class PrintController {
   }
 
   @Post('jobs/:jobId/reprint')
-  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER, StoreRole.STAFF)
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER, StoreRole.KITCHEN, StoreRole.STAFF)
   @ApiOperation({ summary: 'Create a reprint job from an existing print job.' })
   reprintJob(@Param('jobId') jobId: string, @Body() _dto: ReprintDto, @CurrentUser() currentUser: AuthRequestUser) {
     return this.printService.reprintJob(jobId, currentUser);

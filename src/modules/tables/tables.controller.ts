@@ -8,7 +8,7 @@ import { Roles } from '@/modules/auth/roles.decorator';
 import { RolesGuard } from '@/modules/auth/roles.guard';
 
 import { TablesService } from './tables.service';
-import { AddTableItemsDto, CancelTableOrderDto, CheckoutTableDto, MergeTableDto, OpenTableDto, SplitBillDto, TransferTableDto, UpsertDiningAreaDto, UpsertDiningTableDto } from './dto/table.dto';
+import { AddTableItemsDto, CancelTableOrderDto, CheckoutTableDto, MergeTableDto, OpenTableDto, SplitBillDto, TransferTableDto, UpdateTableOrderItemDto, UpsertDiningAreaDto, UpsertDiningTableDto } from './dto/table.dto';
 
 @ApiTags('tables')
 @Controller()
@@ -31,8 +31,20 @@ export class TablesController {
 
   @Post('tables/:id/items')
   @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
-  addItems(@Param('id') id: string, @Body() dto: AddTableItemsDto) {
-    return this.tablesService.addItems(id, dto);
+  addItems(@Param('id') id: string, @Body() dto: AddTableItemsDto, @CurrentUser() currentUser?: AuthRequestUser) {
+    return this.tablesService.addItems(id, dto, currentUser);
+  }
+
+  @Patch('tables/:id/items/:itemId')
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
+  updateOrderItem(@Param('id') id: string, @Param('itemId') itemId: string, @Body() dto: UpdateTableOrderItemDto) {
+    return this.tablesService.updateOrderItem(id, itemId, dto);
+  }
+
+  @Post('tables/:id/items/:itemId/delete')
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
+  deleteOrderItem(@Param('id') id: string, @Param('itemId') itemId: string) {
+    return this.tablesService.deleteOrderItem(id, itemId);
   }
 
   @Post('tables/:id/checkout')
@@ -66,7 +78,7 @@ export class TablesController {
   }
 
   @Post('tables/:id/cancel')
-  @Roles(StoreRole.OWNER, StoreRole.MANAGER)
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
   cancelTableOrder(@Param('id') id: string, @Body() dto: CancelTableOrderDto) {
     return this.tablesService.cancelOpenOrder(id, dto);
   }
