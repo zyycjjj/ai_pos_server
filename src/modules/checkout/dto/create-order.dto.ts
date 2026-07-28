@@ -285,6 +285,11 @@ export class HoldOrderDto {
   @IsIn(['DINE_IN', 'TAKEAWAY', 'PICKUP'])
   orderType?: 'DINE_IN' | 'TAKEAWAY' | 'PICKUP';
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  tableId?: string;
+
   @ApiPropertyOptional({ type: CreateOrderAdjustmentDto })
   @IsOptional()
   @ValidateNested()
