@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { KitchenStationStatus, KitchenTicketStatus } from '@prisma/client';
 
 import { KitchenService } from './kitchen.service';
+import { calculateKitchenSla } from './kitchen-sla';
+import { sortPresentedKitchenTickets } from './kitchen-priority';
 
 describe('KitchenService', () => {
   it('generates one idempotent ticket per station and keeps modifier snapshots', async () => {
@@ -118,5 +120,31 @@ describe('KitchenService', () => {
     assert.equal(updated[0].input.data.status, KitchenTicketStatus.CANCELLED);
     assert.equal(updated[0].input.data.cancelReason, 'Void order');
     assert.deepEqual(updated[1].input.where.ticketId, { in: ['ticket-new', 'ticket-preparing'] });
+  });
+
+  it('calculates kitchen SLA and sorts urgent overdue tickets first', () => {
+    const now = new Date('2026-07-29T10:20:00.000Z');
+    const station = { warningMinutes: 8, overdueMinutes: 15 };
+
+    assert.deepEqual(
+      calculateKitchenSla({
+        status: KitchenTicketStatus.NEW,
+        createdAt: new Date('2026-07-29T10:10:00.000Z'),
+        startedAt: null,
+        readyAt: null,
+        completedAt: null,
+        cancelledAt: null,
+        station,
+      }, now),
+      { waitMinutes: 10, cookMinutes: null, slaStatus: 'WARNING' },
+    );
+
+    const sorted = sortPresentedKitchenTickets([
+      { id: 'normal', urgent: false, slaStatus: 'OVERDUE', createdAt: '2026-07-29T10:00:00.000Z' },
+      { id: 'urgent', urgent: true, slaStatus: 'NORMAL', createdAt: '2026-07-29T10:05:00.000Z' },
+      { id: 'warning', urgent: false, slaStatus: 'WARNING', createdAt: '2026-07-29T09:55:00.000Z' },
+    ]);
+
+    assert.deepEqual(sorted.map((ticket) => ticket.id), ['urgent', 'normal', 'warning']);
   });
 });

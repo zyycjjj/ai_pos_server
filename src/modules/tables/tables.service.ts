@@ -12,7 +12,7 @@ import { ShiftsService } from '@/modules/shifts/shifts.service';
 import { KitchenService } from '@/modules/kitchen/kitchen.service';
 import { PrismaService } from '@/prisma/prisma.service';
 
-import { AddTableItemsDto, BatchCreateDiningTablesDto, CancelTableOrderDto, CheckoutTableDto, DeleteTableOrderItemDto, MergeTableDto, OpenTableDto, SplitBillDto, TransferTableDto, UpdateTableOrderItemDto, UpsertDiningAreaDto, UpsertDiningTableDto } from './dto/table.dto';
+import { AddTableItemsDto, BatchCreateDiningTablesDto, CancelTableOrderDto, CheckoutTableDto, DeleteTableOrderItemDto, MergeTableDto, OpenTableDto, RushTableOrderItemDto, SplitBillDto, TransferTableDto, UpdateTableOrderItemDto, UpsertDiningAreaDto, UpsertDiningTableDto } from './dto/table.dto';
 
 type ProductWithModifiers = Prisma.ProductGetPayload<{ include: { modifierGroups: { include: { options: true } } } }>;
 
@@ -263,6 +263,18 @@ export class TablesService {
         }
       }
     });
+    return this.getTable(id);
+  }
+
+  async rushOrderItem(id: string, itemId: string, dto: RushTableOrderItemDto = {}, currentUser?: AuthRequestUser) {
+    const ticketId = await this.findRushableTicketIdForItem(id, itemId);
+    await this.kitchenService.rushTicket(ticketId, { reason: dto.reason ?? 'Customer requested rush.' }, currentUser);
+    return this.getTable(id);
+  }
+
+  async unrushOrderItem(id: string, itemId: string, dto: RushTableOrderItemDto = {}, currentUser?: AuthRequestUser) {
+    const ticketId = await this.findRushableTicketIdForItem(id, itemId);
+    await this.kitchenService.unrushTicket(ticketId, { reason: dto.reason ?? 'Rush cleared from table service.' }, currentUser);
     return this.getTable(id);
   }
 
@@ -542,6 +554,29 @@ export class TablesService {
     }
   }
 
+  private async findRushableTicketIdForItem(tableId: string, itemId: string) {
+    const table = await this.findTableWithOrder(tableId);
+    const order = table.currentOrder;
+    if (!order || order.status !== OrderStatus.OPEN) throw this.businessError('TABLE_ORDER_NOT_OPEN', 'Table has no open order.');
+    if (!order.items.some((item) => item.id === itemId)) throw new NotFoundException('Order item not found.');
+    const ticketItem = await this.prisma.kitchenTicketItem.findFirst({
+      where: {
+        storeId: this.getStoreId(),
+        orderItemId: itemId,
+        ticket: {
+          orderId: order.id,
+          status: { in: [KitchenTicketStatus.NEW, KitchenTicketStatus.PREPARING] },
+        },
+      },
+      include: { ticket: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    if (!ticketItem) {
+      throw new BadRequestException('Only unfinished kitchen items can be rushed.');
+    }
+    return ticketItem.ticketId;
+  }
+
   private async repriceOrder(tx: Prisma.TransactionClient, orderId: string) {
     const order = await tx.order.findUniqueOrThrow({ where: { id: orderId }, include: { items: true } });
     const subtotal = order.items.reduce((sum, item) => sum.plus(item.lineTotal), new Decimal(0)).toDecimalPlaces(2);
@@ -686,7 +721,7 @@ export class TablesService {
   }
 
   private orderInclude() {
-    return { table: true, items: { include: { product: true, refundItems: true, kitchenTicketItems: true } }, payments: true, refunds: { include: { items: true } }, auditLogs: true, kitchenTickets: { include: { station: true } } } satisfies Prisma.OrderInclude;
+    return { table: true, items: { include: { product: true, refundItems: true, kitchenTicketItems: { include: { ticket: true } } } }, payments: true, refunds: { include: { items: true } }, auditLogs: true, kitchenTickets: { include: { station: true } } } satisfies Prisma.OrderInclude;
   }
 
   private async createPickupNumber(tx: Prisma.TransactionClient) {

@@ -86,6 +86,14 @@ export class DeleteTableOrderItemDto {
   reason?: string;
 }
 
+export class RushTableOrderItemDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(240)
+  reason?: string;
+}
+
 export class BatchCreateDiningTablesDto {
   @ApiPropertyOptional()
   @IsOptional()

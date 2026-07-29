@@ -67,6 +67,8 @@ enum OrderAuditAction {
   BILL_SPLIT
   TABLE_CLEARED
   TABLE_ITEM_REMOVED
+  KITCHEN_TICKET_RUSHED
+  KITCHEN_TICKET_UNRUSHED
 }
 
 enum BusinessDayStatus {
@@ -292,6 +294,7 @@ model Store {
   businessDays BusinessDay[]
   cashMovements CashMovement[]
   kitchenStations KitchenStation[]
+  kitchenStaffStations KitchenStaffStation[]
   kitchenTickets KitchenTicket[]
   kitchenTicketItems KitchenTicketItem[]
   printers Printer[]
@@ -330,6 +333,8 @@ model User {
   closedBusinessDays BusinessDay[] @relation("BusinessDayClosedBy")
   cashMovements CashMovement[] @relation("CashMovementCreatedBy")
   createdKitchenTickets KitchenTicket[] @relation("KitchenTicketCreatedBy")
+  rushedKitchenTickets KitchenTicket[] @relation("KitchenTicketRushedBy")
+  kitchenStationAssignments KitchenStaffStation[]
   requestedPrintJobs PrintJob[] @relation("PrintJobRequestedBy")
   createdLoyaltyPointLedgers LoyaltyPointLedger[] @relation("LoyaltyPointLedgerCreatedBy")
   aiConversations AiConversation[]
@@ -803,14 +808,33 @@ model KitchenStation {
   status    KitchenStationStatus @default(ACTIVE)
   sortOrder Int                  @default(0)
   isDefault Boolean              @default(false)
+  warningMinutes Int             @default(8)
+  overdueMinutes Int             @default(15)
   products  Product[]            @relation("ProductKitchenStation")
   categories Category[]          @relation("CategoryDefaultKitchenStation")
   tickets   KitchenTicket[]
+  staffAssignments KitchenStaffStation[]
   createdAt DateTime             @default(now())
   updatedAt DateTime             @updatedAt
 
   @@unique([storeId, code])
   @@index([storeId])
+  @@allow("all", true)
+}
+
+model KitchenStaffStation {
+  id        String         @id @default(cuid())
+  storeId   String
+  store     Store          @relation(fields: [storeId], references: [id])
+  userId    String
+  user      User           @relation(fields: [userId], references: [id])
+  stationId String
+  station   KitchenStation @relation(fields: [stationId], references: [id])
+  createdAt DateTime       @default(now())
+
+  @@unique([storeId, userId, stationId])
+  @@index([storeId, userId])
+  @@index([storeId, stationId])
   @@allow("all", true)
 }
 
@@ -829,6 +853,11 @@ model KitchenTicket {
   completedAt     DateTime?
   cancelledAt     DateTime?
   cancelReason    String?             @db.Text
+  urgent          Boolean             @default(false)
+  rushReason      String?             @db.Text
+  rushedAt        DateTime?
+  rushedByUserId  String?
+  rushedBy        User?               @relation("KitchenTicketRushedBy", fields: [rushedByUserId], references: [id])
   createdByUserId String?
   createdBy       User?               @relation("KitchenTicketCreatedBy", fields: [createdByUserId], references: [id])
   items           KitchenTicketItem[]

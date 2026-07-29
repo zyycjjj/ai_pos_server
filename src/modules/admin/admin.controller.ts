@@ -24,10 +24,13 @@ import {
   UpsertProductDto,
 } from './dto/catalog.dto';
 import {
+  AssignKitchenStaffStationsDto,
   CancelKitchenTicketDto,
+  ListKitchenTicketHistoryDto,
   ListKitchenTicketsDto,
   UpdateKitchenStationStatusDto,
   UpdateKitchenPrintModeDto,
+  UpdateKitchenTicketPriorityDto,
   UpsertKitchenStationDto,
 } from '../kitchen/dto/kitchen.dto';
 
@@ -108,10 +111,22 @@ export class AdminController {
     return this.kitchenService.listTickets(query);
   }
 
+  @Get('kitchen/tickets/history')
+  @ApiOperation({ summary: 'List kitchen ticket history for Admin management.' })
+  listKitchenTicketHistory(@Query() query: ListKitchenTicketHistoryDto) {
+    return this.kitchenService.listTicketHistory(query);
+  }
+
   @Get('kitchen/tickets/:id')
   @ApiOperation({ summary: 'Read kitchen ticket detail for Admin management.' })
   getKitchenTicket(@Param('id') id: string) {
     return this.kitchenService.getTicket(id);
+  }
+
+  @Get('kitchen/tickets/:id/preview')
+  @ApiOperation({ summary: 'Preview kitchen ticket content from Admin management.' })
+  previewKitchenTicket(@Param('id') id: string) {
+    return this.kitchenService.previewTicket(id);
   }
 
   @Post('kitchen/tickets/:id/start')
@@ -136,6 +151,36 @@ export class AdminController {
   @ApiOperation({ summary: 'Cancel a kitchen ticket from Admin management.' })
   cancelKitchenTicket(@Param('id') id: string, @Body() dto: CancelKitchenTicketDto) {
     return this.kitchenService.cancelTicket(id, dto);
+  }
+
+  @Post('kitchen/tickets/:id/rush')
+  @ApiOperation({ summary: 'Mark a kitchen ticket urgent from Admin management.' })
+  rushKitchenTicket(@Param('id') id: string, @Body() dto: UpdateKitchenTicketPriorityDto) {
+    return this.kitchenService.rushTicket(id, dto);
+  }
+
+  @Post('kitchen/tickets/:id/unrush')
+  @ApiOperation({ summary: 'Remove urgent priority from a kitchen ticket from Admin management.' })
+  unrushKitchenTicket(@Param('id') id: string, @Body() dto: UpdateKitchenTicketPriorityDto) {
+    return this.kitchenService.unrushTicket(id, dto);
+  }
+
+  @Get('kitchen/route-summary')
+  @ApiOperation({ summary: 'Read kitchen route completeness summary.' })
+  getKitchenRouteSummary() {
+    return this.kitchenService.getRouteSummary();
+  }
+
+  @Get('kitchen/staff-stations')
+  @ApiOperation({ summary: 'List kitchen staff station assignments.' })
+  listKitchenStaffStations() {
+    return this.kitchenService.listKitchenStaffStations();
+  }
+
+  @Patch('kitchen/staff-stations')
+  @ApiOperation({ summary: 'Assign kitchen stations to a kitchen staff user.' })
+  assignKitchenStaffStations(@Body() dto: AssignKitchenStaffStationsDto) {
+    return this.kitchenService.assignKitchenStaffStations(dto);
   }
 
   @Get('staff')

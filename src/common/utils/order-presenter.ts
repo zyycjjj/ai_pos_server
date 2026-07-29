@@ -3,7 +3,7 @@ import type { DiningTable, KitchenStation, KitchenTicket, KitchenTicketItem, Ord
 import { toMoneyNumber } from './money';
 
 type OrderWithItems = Order & {
-  items: Array<OrderItem & { product: Product; refundItems?: RefundItem[]; kitchenTicketItems?: KitchenTicketItem[] }>;
+  items: Array<OrderItem & { product: Product; refundItems?: RefundItem[]; kitchenTicketItems?: Array<KitchenTicketItem & { ticket?: KitchenTicket }> }>;
   payments?: OrderPayment[];
   refunds?: Array<Refund & { items?: RefundItem[] }>;
   auditLogs?: OrderAuditLog[];
@@ -107,6 +107,9 @@ export function presentOrder(order: OrderWithItems) {
       readyAt: ticket.readyAt?.toISOString() ?? null,
       completedAt: ticket.completedAt?.toISOString() ?? null,
       cancelledAt: ticket.cancelledAt?.toISOString() ?? null,
+      urgent: ticket.urgent,
+      rushReason: ticket.rushReason,
+      rushedAt: ticket.rushedAt?.toISOString() ?? null,
     })),
     kitchenStatus:
       kitchenTickets.length === 0
@@ -124,6 +127,7 @@ export function presentOrder(order: OrderWithItems) {
       addedAt: item.createdAt.toISOString(),
       createdAt: item.createdAt.toISOString(),
       kitchenStatus: summarizeKitchenStatus((item.kitchenTicketItems ?? []).map((ticketItem) => ticketItem.status)),
+      urgent: (item.kitchenTicketItems ?? []).some((ticketItem) => ticketItem.ticket?.urgent),
       refundedQuantity: (item.refundItems ?? []).reduce((sum, refundItem) => sum + refundItem.quantity, 0),
       modifiers: item.modifiers ?? [],
     })),
