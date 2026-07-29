@@ -245,7 +245,7 @@ export class KitchenService {
         },
       });
     });
-    return this.getTicket(id, currentUser);
+    return this.presentTicket(await this.findTicket(id));
   }
 
   async unrushTicket(id: string, dto: UpdateKitchenTicketPriorityDto = {}, currentUser?: AuthRequestUser) {
@@ -270,7 +270,7 @@ export class KitchenService {
         },
       });
     });
-    return this.getTicket(id, currentUser);
+    return this.presentTicket(await this.findTicket(id));
   }
 
   async listKitchenStaffStations() {
