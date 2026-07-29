@@ -66,6 +66,7 @@ enum OrderAuditAction {
   TABLE_MERGED
   BILL_SPLIT
   TABLE_CLEARED
+  TABLE_ITEM_REMOVED
 }
 
 enum BusinessDayStatus {
@@ -671,6 +672,7 @@ model OrderItem {
   unitPrice Decimal  @db.Decimal(10, 2)
   lineTotal Decimal  @db.Decimal(10, 2)
   modifiers Json?
+  note      String?  @db.Text
   refundItems RefundItem[]
   kitchenTicketItems KitchenTicketItem[]
   createdAt DateTime @default(now())

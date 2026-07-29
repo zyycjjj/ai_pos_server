@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { ArrayMinSize, IsArray, IsIn, IsInt, IsNumber, IsOptional, IsString, MaxLength, Min, ValidateNested } from 'class-validator';
+import { ArrayMinSize, IsArray, IsBoolean, IsIn, IsInt, IsNumber, IsOptional, IsString, MaxLength, Min, ValidateNested } from 'class-validator';
 
 import { CreateOrderItemDto, CreateOrderPaymentLineDto } from '@/modules/checkout/dto/create-order.dto';
 
@@ -76,6 +76,63 @@ export class UpdateTableOrderItemDto {
   @IsInt()
   @Min(1)
   quantity: number;
+}
+
+export class DeleteTableOrderItemDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(240)
+  reason?: string;
+}
+
+export class BatchCreateDiningTablesDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  areaId?: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  areaName?: string;
+
+  @ApiProperty()
+  @IsString()
+  @MaxLength(20)
+  prefix: string;
+
+  @ApiProperty({ minimum: 1 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  startNumber: number;
+
+  @ApiProperty({ minimum: 1 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  count: number;
+
+  @ApiPropertyOptional({ minimum: 1, default: 2 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  digits?: number;
+
+  @ApiPropertyOptional({ minimum: 1, default: 2 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  defaultSeats?: number;
+
+  @ApiPropertyOptional({ default: true })
+  @IsOptional()
+  @IsBoolean()
+  skipExisting?: boolean;
 }
 
 export class CheckoutTableDto {

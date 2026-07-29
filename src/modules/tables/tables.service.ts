@@ -12,7 +12,7 @@ import { ShiftsService } from '@/modules/shifts/shifts.service';
 import { KitchenService } from '@/modules/kitchen/kitchen.service';
 import { PrismaService } from '@/prisma/prisma.service';
 
-import { AddTableItemsDto, CancelTableOrderDto, CheckoutTableDto, MergeTableDto, OpenTableDto, SplitBillDto, TransferTableDto, UpdateTableOrderItemDto, UpsertDiningAreaDto, UpsertDiningTableDto } from './dto/table.dto';
+import { AddTableItemsDto, BatchCreateDiningTablesDto, CancelTableOrderDto, CheckoutTableDto, DeleteTableOrderItemDto, MergeTableDto, OpenTableDto, SplitBillDto, TransferTableDto, UpdateTableOrderItemDto, UpsertDiningAreaDto, UpsertDiningTableDto } from './dto/table.dto';
 
 type ProductWithModifiers = Prisma.ProductGetPayload<{ include: { modifierGroups: { include: { options: true } } } }>;
 
@@ -77,6 +77,42 @@ export class TablesService {
       },
     });
     return this.getTable(table.id);
+  }
+
+  async batchCreateTables(dto: BatchCreateDiningTablesDto) {
+    const storeId = this.getStoreId();
+    const area = dto.areaId ? await this.findArea(dto.areaId) : await this.findOrCreateAreaByName(dto.areaName);
+    const prefix = this.clean(dto.prefix);
+    const count = dto.count;
+    if (count > 200) throw new BadRequestException('Batch table count cannot exceed 200.');
+    const digits = dto.digits ?? 2;
+    const seats = dto.defaultSeats ?? 2;
+    const skipExisting = dto.skipExisting ?? true;
+    const requested = Array.from({ length: count }, (_, index) => {
+      const number = dto.startNumber + index;
+      return { name: `${prefix}${String(number).padStart(digits, '0')}`, sortOrder: number };
+    });
+    const existing = await this.prisma.diningTable.findMany({
+      where: { storeId, areaId: area.id, name: { in: requested.map((item) => item.name) } },
+      select: { name: true },
+    });
+    const existingNames = new Set(existing.map((item) => item.name));
+    if (existingNames.size > 0 && !skipExisting) throw new BadRequestException('Some tables already exist in this area.');
+    const toCreate = requested.filter((item) => !existingNames.has(item.name));
+    const created = await this.prisma.$transaction(
+      toCreate.map((item) =>
+        this.prisma.diningTable.create({
+          data: { storeId, areaId: area.id, name: item.name, seats, sortOrder: item.sortOrder, status: DiningTableStatus.AVAILABLE },
+        }),
+      ),
+    );
+    return {
+      areaId: area.id,
+      areaName: area.name,
+      created: created.length,
+      skipped: requested.length - created.length,
+      items: requested.map((item) => ({ name: item.name, status: existingNames.has(item.name) ? 'SKIPPED' : 'CREATED' })),
+    };
   }
 
   async updateTable(id: string, dto: UpsertDiningTableDto) {
@@ -147,7 +183,7 @@ export class TablesService {
   async addItems(id: string, dto: AddTableItemsDto, currentUser?: AuthRequestUser) {
     const table = await this.findTableWithOrder(id);
     const order = table.currentOrder;
-    if (!order || order.status !== OrderStatus.OPEN) throw new BadRequestException('Table has no open order.');
+    if (!order || order.status !== OrderStatus.OPEN) throw this.businessError('TABLE_ORDER_NOT_OPEN', 'Table has no open order.');
     const draftItems = await this.resolveItems(dto.items);
     const existingSubtotal = order.items.reduce((sum, item) => sum.plus(item.lineTotal), new Decimal(0));
     const subtotal = existingSubtotal.plus(draftItems.reduce((sum, item) => sum.plus(item.lineTotal), new Decimal(0))).toDecimalPlaces(2);
@@ -194,10 +230,10 @@ export class TablesService {
     return this.getTable(id);
   }
 
-  async deleteOrderItem(id: string, itemId: string) {
+  async deleteOrderItem(id: string, itemId: string, dto: DeleteTableOrderItemDto = {}, currentUser?: AuthRequestUser) {
     const table = await this.findTableWithOrder(id);
     const order = table.currentOrder;
-    if (!order || order.status !== OrderStatus.OPEN) throw new BadRequestException('Table has no open order.');
+    if (!order || order.status !== OrderStatus.OPEN) throw this.businessError('TABLE_ORDER_NOT_OPEN', 'Table has no open order.');
     if (!order.items.some((item) => item.id === itemId)) throw new NotFoundException('Order item not found.');
     await this.assertOrderItemEditable(itemId);
     await this.prisma.$transaction(async (tx) => {
@@ -205,6 +241,17 @@ export class TablesService {
       await tx.kitchenTicketItem.deleteMany({ where: { orderItemId: itemId } });
       await tx.orderItem.delete({ where: { id: itemId } });
       await this.repriceOrder(tx, order.id);
+      await tx.orderAuditLog.create({
+        data: {
+          storeId: this.getStoreId(),
+          orderId: order.id,
+          action: OrderAuditAction.TABLE_ITEM_REMOVED,
+          fromStatus: OrderStatus.OPEN,
+          toStatus: OrderStatus.OPEN,
+          reason: dto.reason ?? 'Pending table item removed.',
+          operatorId: currentUser?.id,
+        },
+      });
       const ticketIds = [...new Set(ticketItems.map((item) => item.ticketId))];
       for (const ticketId of ticketIds) {
         const remaining = await tx.kitchenTicketItem.count({ where: { ticketId } });
@@ -433,9 +480,19 @@ export class TablesService {
   async cancelOpenOrder(id: string, dto: CancelTableOrderDto) {
     const table = await this.findTableWithOrder(id);
     const order = table.currentOrder;
-    if (!order || order.status !== OrderStatus.OPEN) throw new BadRequestException('Table has no open order.');
+    if (!order || order.status !== OrderStatus.OPEN) throw this.businessError('TABLE_ORDER_NOT_OPEN', 'Table has no open order.');
     const updated = await this.prisma.$transaction(async (tx) => {
       await tx.order.update({ where: { id: order.id }, data: { status: OrderStatus.CANCELLED, closedAt: new Date() } });
+      await tx.orderAuditLog.create({
+        data: {
+          storeId: this.getStoreId(),
+          orderId: order.id,
+          action: OrderAuditAction.CANCELLED,
+          fromStatus: OrderStatus.OPEN,
+          toStatus: OrderStatus.CANCELLED,
+          reason: dto.reason ?? 'Table order cancelled.',
+        },
+      });
       return tx.diningTable.update({ where: { id }, data: { status: DiningTableStatus.DIRTY, currentOrderId: null } });
     });
     return this.getTable(updated.id);
@@ -450,6 +507,15 @@ export class TablesService {
     const area = await this.prisma.diningArea.findFirst({ where: { id, storeId: this.getStoreId() } });
     if (!area) throw new NotFoundException('Dining area not found.');
     return area;
+  }
+
+  private async findOrCreateAreaByName(areaName?: string) {
+    const name = this.clean(areaName ?? '');
+    const existing = await this.prisma.diningArea.findFirst({ where: { storeId: this.getStoreId(), name } });
+    if (existing) return existing;
+    return this.prisma.diningArea.create({
+      data: { storeId: this.getStoreId(), name, sortOrder: 0, status: CatalogStatus.ACTIVE },
+    });
   }
 
   private async findTable(id: string) {
@@ -495,7 +561,7 @@ export class TablesService {
     const productById = new Map(products.map((product) => [product.id, product]));
     return items.map((item) => {
       const product = productById.get(item.productId);
-      if (!product) throw new BadRequestException(`Product not found, inactive, or sold out: ${item.productId}`);
+      if (!product) throw new BadRequestException(`Product not found: ${item.productId}`);
       this.assertProductOrderable(product);
       const modifiers = this.resolveSelectedModifiers(product, item.modifiers ?? []);
       const unitPrice = modifiers.reduce((price, modifier) => price.plus(modifier.priceDelta), product.price).toDecimalPlaces(2);
@@ -507,22 +573,35 @@ export class TablesService {
         unitPrice,
         lineTotal: multiplyMoney(unitPrice, item.quantity),
         modifiers,
+        note: item.note?.trim() || undefined,
       };
     });
   }
 
   private resolveSelectedModifiers(product: ProductWithModifiers, selections: NonNullable<AddTableItemsDto['items'][number]['modifiers']>) {
-    const selectedByGroup = new Map(selections.map((selection) => [selection.groupId, selection.optionIds]));
+    const selectedByGroup = new Map<string, string[]>();
+    for (const selection of selections) {
+      selectedByGroup.set(selection.groupId, [...(selectedByGroup.get(selection.groupId) ?? []), ...selection.optionIds]);
+    }
+    const activeGroupIds = new Set(product.modifierGroups.map((group) => group.id));
+    for (const groupId of selectedByGroup.keys()) {
+      if (!activeGroupIds.has(groupId)) throw this.businessError('INVALID_MODIFIER_SELECTION', `Modifier group does not belong to product: ${groupId}`);
+    }
     const snapshots: Array<{ groupId: string; groupName: string; optionId: string; optionName: string; priceDelta: number }> = [];
     for (const group of product.modifierGroups) {
-      const optionIds = selectedByGroup.get(group.id) ?? [];
-      if (group.required && optionIds.length === 0) throw new BadRequestException(`Modifier group is required: ${group.name}`);
+      const optionIds = [...new Set(selectedByGroup.get(group.id) ?? [])];
+      const minSelect = group.minSelect ?? (group.required ? 1 : 0);
+      const maxSelect = group.maxSelect ?? (group.multiSelect ? Number.MAX_SAFE_INTEGER : 1);
+      if (optionIds.length < minSelect) throw this.businessError('REQUIRED_MODIFIER_MISSING', `Modifier group is required: ${group.name}`);
+      if (optionIds.length > maxSelect || (!group.multiSelect && optionIds.length > 1)) {
+        throw this.businessError('INVALID_MODIFIER_SELECTION', `Invalid modifier selection for group: ${group.name}`);
+      }
       const optionsById = new Map(group.options.map((option) => [option.id, option]));
       for (const optionId of optionIds) {
         const option = optionsById.get(optionId);
-        if (!option) throw new BadRequestException(`Modifier option does not belong to product: ${optionId}`);
-        if (option.status === ModifierOptionStatus.INACTIVE) throw new BadRequestException({ code: 'MODIFIER_OPTION_INACTIVE', message: `Modifier option is not available: ${option.name}` });
-        if (option.status === ModifierOptionStatus.SOLD_OUT) throw new BadRequestException({ code: 'MODIFIER_OPTION_SOLD_OUT', message: `Modifier option is not available: ${option.name}` });
+        if (!option) throw this.businessError('INVALID_MODIFIER_SELECTION', `Modifier option does not belong to product: ${optionId}`);
+        if (option.status === ModifierOptionStatus.INACTIVE) throw this.businessError('MODIFIER_OPTION_INACTIVE', `Modifier option is not available: ${option.name}`);
+        if (option.status === ModifierOptionStatus.SOLD_OUT) throw this.businessError('MODIFIER_OPTION_SOLD_OUT', `Modifier option is not available: ${option.name}`);
         snapshots.push({ groupId: group.id, groupName: group.name, optionId: option.id, optionName: option.name, priceDelta: Number(option.priceDelta) });
       }
     }
@@ -531,10 +610,10 @@ export class TablesService {
 
   private assertProductOrderable(product: Pick<ProductWithModifiers, 'name' | 'isActive' | 'availabilityStatus'>) {
     if (product.isActive === false) {
-      throw new BadRequestException({ code: 'PRODUCT_INACTIVE', message: `Product is inactive: ${product.name}` });
+      throw this.businessError('PRODUCT_INACTIVE', `Product is inactive: ${product.name}`);
     }
     if (product.availabilityStatus === ProductAvailabilityStatus.SOLD_OUT) {
-      throw new BadRequestException({ code: 'PRODUCT_SOLD_OUT', message: `Product is sold out: ${product.name}` });
+      throw this.businessError('PRODUCT_SOLD_OUT', `Product is sold out: ${product.name}`);
     }
   }
 
@@ -568,6 +647,7 @@ export class TablesService {
       unitPrice: item.unitPrice,
       lineTotal: multiplyMoney(item.unitPrice, quantity),
       modifiers: item.modifiers as Prisma.InputJsonValue,
+      note: item.note,
     };
   }
 
@@ -606,7 +686,7 @@ export class TablesService {
   }
 
   private orderInclude() {
-    return { table: true, items: { include: { product: true, refundItems: true } }, payments: true, refunds: { include: { items: true } }, auditLogs: true, kitchenTickets: { include: { station: true } } } satisfies Prisma.OrderInclude;
+    return { table: true, items: { include: { product: true, refundItems: true, kitchenTicketItems: true } }, payments: true, refunds: { include: { items: true } }, auditLogs: true, kitchenTickets: { include: { station: true } } } satisfies Prisma.OrderInclude;
   }
 
   private async createPickupNumber(tx: Prisma.TransactionClient) {
@@ -624,6 +704,10 @@ export class TablesService {
     const cleaned = value.trim();
     if (!cleaned) throw new BadRequestException('Name is required.');
     return cleaned;
+  }
+
+  private businessError(code: string, message: string) {
+    return new BadRequestException({ code, message });
   }
 
   private getStoreId() {

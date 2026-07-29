@@ -1,9 +1,9 @@
-import type { DiningTable, KitchenStation, KitchenTicket, Order, OrderAuditLog, OrderItem, OrderPayment, Product, Refund, RefundItem } from '@prisma/client';
+import type { DiningTable, KitchenStation, KitchenTicket, KitchenTicketItem, Order, OrderAuditLog, OrderItem, OrderPayment, Product, Refund, RefundItem } from '@prisma/client';
 
 import { toMoneyNumber } from './money';
 
 type OrderWithItems = Order & {
-  items: Array<OrderItem & { product: Product; refundItems?: RefundItem[] }>;
+  items: Array<OrderItem & { product: Product; refundItems?: RefundItem[]; kitchenTicketItems?: KitchenTicketItem[] }>;
   payments?: OrderPayment[];
   refunds?: Array<Refund & { items?: RefundItem[] }>;
   auditLogs?: OrderAuditLog[];
@@ -120,6 +120,10 @@ export function presentOrder(order: OrderWithItems) {
       quantity: item.quantity,
       unitPrice: toMoneyNumber(item.unitPrice),
       lineTotal: toMoneyNumber(item.lineTotal),
+      note: item.note ?? null,
+      addedAt: item.createdAt.toISOString(),
+      createdAt: item.createdAt.toISOString(),
+      kitchenStatus: summarizeKitchenStatus((item.kitchenTicketItems ?? []).map((ticketItem) => ticketItem.status)),
       refundedQuantity: (item.refundItems ?? []).reduce((sum, refundItem) => sum + refundItem.quantity, 0),
       modifiers: item.modifiers ?? [],
     })),
@@ -127,6 +131,9 @@ export function presentOrder(order: OrderWithItems) {
 }
 
 function summarizeKitchenStatus(statuses: string[]) {
+  if (statuses.length === 0) {
+    return null;
+  }
   if (statuses.every((status) => status === 'COMPLETED')) {
     return 'COMPLETED';
   }

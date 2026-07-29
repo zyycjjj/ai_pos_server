@@ -242,4 +242,36 @@ describe('TablesService table operations', () => {
     const { service } = createHarness();
     await assert.rejects(() => service.splitBill('table-source', { items: [{ orderItemId: 'item-1', quantity: 3 }] }), /Split quantity exceeds available quantity/);
   });
+
+  it('validates required table modifiers and keeps price delta snapshots', () => {
+    const { service } = createHarness();
+    const modifierProduct = {
+      ...product,
+      price: new Decimal('8.00'),
+      modifierGroups: [
+        {
+          id: 'size',
+          name: 'Size',
+          required: true,
+          multiSelect: false,
+          minSelect: 1,
+          maxSelect: 1,
+          status: 'ACTIVE',
+          displayOrder: 1,
+          options: [
+            { id: 'regular', groupId: 'size', name: 'Regular', priceDelta: new Decimal(0), status: 'ACTIVE', displayOrder: 1 },
+            { id: 'large', groupId: 'size', name: 'Large', priceDelta: new Decimal('2.50'), status: 'ACTIVE', displayOrder: 2 },
+          ],
+        },
+      ],
+    };
+
+    assert.throws(() => (service as any).resolveSelectedModifiers(modifierProduct, []), /Modifier group is required/);
+    assert.throws(
+      () => (service as any).resolveSelectedModifiers(modifierProduct, [{ groupId: 'size', optionIds: ['regular', 'large'] }]),
+      /Invalid modifier selection/,
+    );
+    const selected = (service as any).resolveSelectedModifiers(modifierProduct, [{ groupId: 'size', optionIds: ['large'] }]);
+    assert.deepEqual(selected, [{ groupId: 'size', groupName: 'Size', optionId: 'large', optionName: 'Large', priceDelta: 2.5 }]);
+  });
 });

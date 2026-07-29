@@ -8,7 +8,7 @@ import { Roles } from '@/modules/auth/roles.decorator';
 import { RolesGuard } from '@/modules/auth/roles.guard';
 
 import { TablesService } from './tables.service';
-import { AddTableItemsDto, CancelTableOrderDto, CheckoutTableDto, MergeTableDto, OpenTableDto, SplitBillDto, TransferTableDto, UpdateTableOrderItemDto, UpsertDiningAreaDto, UpsertDiningTableDto } from './dto/table.dto';
+import { AddTableItemsDto, BatchCreateDiningTablesDto, CancelTableOrderDto, CheckoutTableDto, DeleteTableOrderItemDto, MergeTableDto, OpenTableDto, SplitBillDto, TransferTableDto, UpdateTableOrderItemDto, UpsertDiningAreaDto, UpsertDiningTableDto } from './dto/table.dto';
 
 @ApiTags('tables')
 @Controller()
@@ -43,8 +43,8 @@ export class TablesController {
 
   @Post('tables/:id/items/:itemId/delete')
   @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
-  deleteOrderItem(@Param('id') id: string, @Param('itemId') itemId: string) {
-    return this.tablesService.deleteOrderItem(id, itemId);
+  deleteOrderItem(@Param('id') id: string, @Param('itemId') itemId: string, @Body() dto: DeleteTableOrderItemDto, @CurrentUser() currentUser?: AuthRequestUser) {
+    return this.tablesService.deleteOrderItem(id, itemId, dto, currentUser);
   }
 
   @Post('tables/:id/checkout')
@@ -111,6 +111,12 @@ export class TablesController {
   @Roles(StoreRole.OWNER, StoreRole.MANAGER)
   createTable(@Body() dto: UpsertDiningTableDto) {
     return this.tablesService.createTable(dto);
+  }
+
+  @Post('admin/tables/batch-create')
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER)
+  batchCreateTables(@Body() dto: BatchCreateDiningTablesDto) {
+    return this.tablesService.batchCreateTables(dto);
   }
 
   @Patch('admin/dining-tables/:id')

@@ -286,7 +286,8 @@
           "TABLE_TRANSFERRED",
           "TABLE_MERGED",
           "BILL_SPLIT",
-          "TABLE_CLEARED"
+          "TABLE_CLEARED",
+          "TABLE_ITEM_REMOVED"
         ]
       },
       "ShiftStatus": {
@@ -2390,6 +2391,16 @@
                 "type": "null"
               },
               {}
+            ]
+          },
+          "note": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
             ]
           },
           "refundItems": {
@@ -7126,6 +7137,16 @@
                 "type": "null"
               },
               {}
+            ]
+          },
+          "note": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
             ]
           },
           "createdAt": {
@@ -16110,6 +16131,9 @@
           "modifiers": {
             "type": "integer"
           },
+          "note": {
+            "type": "integer"
+          },
           "createdAt": {
             "type": "integer"
           },
@@ -16127,6 +16151,7 @@
           "unitPrice",
           "lineTotal",
           "modifiers",
+          "note",
           "createdAt",
           "_all"
         ]
@@ -16302,6 +16327,16 @@
               }
             ]
           },
+          "note": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
           "createdAt": {
             "oneOf": [
               {
@@ -16401,6 +16436,16 @@
               },
               {
                 "type": "null"
+              }
+            ]
+          },
+          "note": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
               }
             ]
           },

@@ -70,6 +70,12 @@ export class CreateOrderItemDto {
   @ValidateNested({ each: true })
   @Type(() => CreateOrderModifierSelectionDto)
   modifiers?: CreateOrderModifierSelectionDto[];
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  @MaxLength(240)
+  note?: string;
 }
 
 export class CreateOrderDto {

@@ -554,7 +554,7 @@ export class CheckoutService {
   private orderInclude() {
     return {
       table: true,
-      items: { include: { product: true, refundItems: true } },
+      items: { include: { product: true, refundItems: true, kitchenTicketItems: true } },
       payments: true,
       refunds: { include: { items: true } },
       auditLogs: true,
@@ -563,7 +563,7 @@ export class CheckoutService {
   }
 
   private orderListInclude() {
-    return { table: true, items: { include: { product: true } }, payments: true, refunds: { include: { items: true } }, kitchenTickets: { include: { station: true } } } satisfies Prisma.OrderInclude;
+    return { table: true, items: { include: { product: true, kitchenTicketItems: true } }, payments: true, refunds: { include: { items: true } }, kitchenTickets: { include: { station: true } } } satisfies Prisma.OrderInclude;
   }
 
   private async createPickupNumber(tx: Prisma.TransactionClient) {
@@ -621,6 +621,7 @@ export class CheckoutService {
       quantity: number;
       unitPrice: Decimal;
       lineTotal: Decimal;
+      note?: string;
       modifiers: Array<{
         groupId: string;
         groupName: string;
@@ -785,6 +786,7 @@ export class CheckoutService {
         unitPrice,
         lineTotal: multiplyMoney(unitPrice, item.quantity),
         modifiers: selectedModifiers,
+        note: item.note?.trim() || undefined,
       };
     });
 
