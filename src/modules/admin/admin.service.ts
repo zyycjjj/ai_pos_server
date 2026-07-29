@@ -827,6 +827,7 @@ export class AdminService {
       name: staff.user.name,
       role: staff.role,
       status: staff.active && staff.user.active ? 'ACTIVE' : 'DISABLED',
+      pinSet: Boolean(staff.user.managerPinHash),
     };
   }
 

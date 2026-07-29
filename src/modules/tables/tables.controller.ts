@@ -17,44 +17,44 @@ export class TablesController {
   constructor(private readonly tablesService: TablesService) {}
 
   @Get('tables')
-  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER, StoreRole.STAFF)
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER, StoreRole.WAITER, StoreRole.STAFF)
   @ApiOperation({ summary: 'List POS dining tables with current order state.' })
   listTables() {
     return this.tablesService.listTables();
   }
 
   @Post('tables/:id/open')
-  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER, StoreRole.WAITER)
   openTable(@Param('id') id: string, @Body() dto: OpenTableDto, @CurrentUser() currentUser?: AuthRequestUser) {
     return this.tablesService.openTable(id, dto, currentUser);
   }
 
   @Post('tables/:id/items')
-  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER, StoreRole.WAITER)
   addItems(@Param('id') id: string, @Body() dto: AddTableItemsDto, @CurrentUser() currentUser?: AuthRequestUser) {
     return this.tablesService.addItems(id, dto, currentUser);
   }
 
   @Patch('tables/:id/items/:itemId')
-  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER, StoreRole.WAITER)
   updateOrderItem(@Param('id') id: string, @Param('itemId') itemId: string, @Body() dto: UpdateTableOrderItemDto) {
     return this.tablesService.updateOrderItem(id, itemId, dto);
   }
 
   @Post('tables/:id/items/:itemId/delete')
-  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER, StoreRole.WAITER)
   deleteOrderItem(@Param('id') id: string, @Param('itemId') itemId: string, @Body() dto: DeleteTableOrderItemDto, @CurrentUser() currentUser?: AuthRequestUser) {
     return this.tablesService.deleteOrderItem(id, itemId, dto, currentUser);
   }
 
   @Post('tables/:id/items/:itemId/rush')
-  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER, StoreRole.WAITER)
   rushOrderItem(@Param('id') id: string, @Param('itemId') itemId: string, @Body() dto: RushTableOrderItemDto, @CurrentUser() currentUser?: AuthRequestUser) {
     return this.tablesService.rushOrderItem(id, itemId, dto, currentUser);
   }
 
   @Post('tables/:id/items/:itemId/unrush')
-  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER, StoreRole.WAITER)
   unrushOrderItem(@Param('id') id: string, @Param('itemId') itemId: string, @Body() dto: RushTableOrderItemDto, @CurrentUser() currentUser?: AuthRequestUser) {
     return this.tablesService.unrushOrderItem(id, itemId, dto, currentUser);
   }

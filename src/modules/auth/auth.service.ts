@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/
 import { StoreRole } from '@prisma/client';
 
 import { PrismaService } from '@/prisma/prisma.service';
+import { roleActionPermissions, roleMenuMatrix } from '@/modules/permissions/action-permission';
 
 import { LoginDto } from './dto/login.dto';
 import { RegisterStoreDto } from './dto/register-store.dto';
@@ -129,12 +130,18 @@ export class AuthService {
   }
 
   private createPermissions(role: StoreRole) {
+    const actionPermissions = roleActionPermissions[role].map((action) => `action.${action}`);
+    const menuPermissions = roleMenuMatrix[role].map((menu) => `menu.${menu}`);
     if (role === StoreRole.KITCHEN) {
-      return ['pos.kitchen.read', 'pos.kitchen.manage', 'pos.settings.read'];
+      return ['pos.kitchen.read', 'pos.kitchen.manage', 'pos.settings.read', ...actionPermissions, ...menuPermissions];
+    }
+
+    if (role === StoreRole.WAITER) {
+      return ['pos.tables', 'pos.settings.read', ...actionPermissions, ...menuPermissions];
     }
 
     if (role !== StoreRole.OWNER && role !== StoreRole.MANAGER) {
-      return ['pos.sell', 'pos.orders', 'pos.tables', 'pos.settings.read'];
+      return ['pos.sell', 'pos.orders', 'pos.tables', 'pos.settings.read', ...actionPermissions, ...menuPermissions];
     }
 
     return [
@@ -151,6 +158,8 @@ export class AuthService {
       'pos.kitchen.manage',
       'admin.campaigns.read',
       'admin.ai.read',
+      ...actionPermissions,
+      ...menuPermissions,
     ];
   }
 }

@@ -3,6 +3,7 @@ import { KitchenPrintMode, KitchenStationStatus, KitchenTicketStatus, OrderAudit
 
 import { StoreContextService } from '@/common/store-context.service';
 import { toMoneyNumber } from '@/common/utils/money';
+import { ApprovalsService } from '@/modules/approvals/approvals.service';
 import type { AuthRequestUser } from '@/modules/auth/auth.types';
 import { PrismaService } from '@/prisma/prisma.service';
 
@@ -21,6 +22,7 @@ export class KitchenService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storeContext?: StoreContextService,
+    private readonly approvalsService?: ApprovalsService,
   ) {}
 
   async listStations() {
@@ -216,6 +218,13 @@ export class KitchenService {
     }
     if (ticket.status === KitchenTicketStatus.CANCELLED) {
       return this.presentTicket(ticket);
+    }
+    if (ticket.status === KitchenTicketStatus.READY) {
+      await this.approvalsService?.requireApproval({
+        action: 'KITCHEN_CANCEL',
+        currentUser,
+        managerApproval: dto.managerApproval,
+      });
     }
     return this.updateTicketStatus(id, KitchenTicketStatus.CANCELLED, {
       cancelledAt: new Date(),

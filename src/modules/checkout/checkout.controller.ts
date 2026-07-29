@@ -89,14 +89,14 @@ export class CheckoutController {
   }
 
   @Patch('orders/:id/void')
-  @Roles(StoreRole.OWNER, StoreRole.MANAGER)
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
   @ApiOperation({ summary: 'Void an order with manager approval and audit trail.' })
   voidOrder(@Param('id') id: string, @Body() dto: VoidOrderDto, @CurrentUser() currentUser?: AuthRequestUser) {
     return this.checkoutService.voidOrder(id, dto, currentUser);
   }
 
   @Post('orders/:id/refunds')
-  @Roles(StoreRole.OWNER, StoreRole.MANAGER)
+  @Roles(StoreRole.OWNER, StoreRole.MANAGER, StoreRole.CASHIER)
   @ApiOperation({ summary: 'Create a full, partial, or item-level refund for an order.' })
   refundOrder(@Param('id') id: string, @Body() dto: RefundOrderDto, @CurrentUser() currentUser?: AuthRequestUser) {
     return this.checkoutService.refundOrder(id, dto, currentUser);

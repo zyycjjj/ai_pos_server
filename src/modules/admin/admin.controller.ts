@@ -6,6 +6,12 @@ import { Roles } from '@/modules/auth/roles.decorator';
 import { RolesGuard } from '@/modules/auth/roles.guard';
 import { KitchenService } from '@/modules/kitchen/kitchen.service';
 import { ShiftsService } from '@/modules/shifts/shifts.service';
+import { ApprovalsService } from '@/modules/approvals/approvals.service';
+import { SetManagerPinDto } from '@/modules/approvals/dto/manager-approval.dto';
+import { CurrentUser } from '@/modules/auth/current-user.decorator';
+import type { AuthRequestUser } from '@/modules/auth/auth.types';
+import { StorePermissionPolicyService } from '@/modules/permissions/store-permission-policy.service';
+import { UpdatePermissionPolicyDto } from '@/modules/permissions/dto/permission-policy.dto';
 
 import { AdminService } from './admin.service';
 import { CreateStaffDto } from './dto/create-staff.dto';
@@ -43,6 +49,8 @@ export class AdminController {
     private readonly adminService: AdminService,
     private readonly shiftsService: ShiftsService,
     private readonly kitchenService: KitchenService,
+    private readonly approvalsService: ApprovalsService,
+    private readonly permissionPolicyService: StorePermissionPolicyService,
   ) {}
 
   @Get('dashboard')
@@ -205,6 +213,24 @@ export class AdminController {
   @ApiOperation({ summary: 'Enable or disable a staff member in the active store.' })
   disableStaff(@Param('id') id: string, @Body() dto: DisableStaffDto) {
     return this.adminService.disableStaff(id, dto);
+  }
+
+  @Post('staff/:id/reset-pin')
+  @ApiOperation({ summary: 'Set or rotate a manager approval PIN for owner or manager staff.' })
+  resetStaffPin(@Param('id') id: string, @Body() dto: SetManagerPinDto, @CurrentUser() currentUser: AuthRequestUser) {
+    return this.approvalsService.resetStaffPin(id, dto, currentUser);
+  }
+
+  @Get('permission-policy')
+  @ApiOperation({ summary: 'Read manager approval policy for the active store.' })
+  getPermissionPolicy() {
+    return this.permissionPolicyService.getPolicy();
+  }
+
+  @Patch('permission-policy')
+  @ApiOperation({ summary: 'Update manager approval policy for the active store.' })
+  updatePermissionPolicy(@Body() dto: UpdatePermissionPolicyDto) {
+    return this.permissionPolicyService.updatePolicy(dto);
   }
 
   @Get('products')

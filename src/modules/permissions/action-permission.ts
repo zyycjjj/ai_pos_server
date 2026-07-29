@@ -1,0 +1,108 @@
+import { StoreRole } from '@prisma/client';
+
+export type ActionPermission =
+  | 'ORDER_PAY'
+  | 'ORDER_REFUND'
+  | 'ORDER_VOID'
+  | 'ORDER_CANCEL_OPEN'
+  | 'ORDER_REPRINT'
+  | 'ORDER_MANUAL_DISCOUNT'
+  | 'ORDER_APPLY_PROMOTION'
+  | 'TABLE_OPEN'
+  | 'TABLE_TRANSFER'
+  | 'TABLE_MERGE'
+  | 'TABLE_SPLIT'
+  | 'TABLE_ADD_ITEM'
+  | 'TABLE_UPDATE_NEW_ITEM'
+  | 'TABLE_DELETE_NEW_ITEM'
+  | 'TABLE_CANCEL_PREPARED_ITEM'
+  | 'KITCHEN_START'
+  | 'KITCHEN_READY'
+  | 'KITCHEN_CANCEL'
+  | 'KITCHEN_REPRINT'
+  | 'SHIFT_OPEN'
+  | 'SHIFT_CLOSE'
+  | 'CASH_MOVEMENT_IN'
+  | 'CASH_MOVEMENT_OUT'
+  | 'PRODUCT_MANAGE'
+  | 'REPORT_VIEW'
+  | 'CUSTOMER_MANAGE'
+  | 'CAMPAIGN_MANAGE'
+  | 'STAFF_MANAGE'
+  | 'MANAGER_APPROVE';
+
+export type PosMenuKey = 'SELL' | 'TABLES' | 'ORDERS' | 'KITCHEN' | 'SHIFT' | 'SETTINGS';
+
+const managerActions: ActionPermission[] = [
+  'ORDER_PAY',
+  'ORDER_REFUND',
+  'ORDER_VOID',
+  'ORDER_CANCEL_OPEN',
+  'ORDER_REPRINT',
+  'ORDER_MANUAL_DISCOUNT',
+  'ORDER_APPLY_PROMOTION',
+  'TABLE_OPEN',
+  'TABLE_TRANSFER',
+  'TABLE_MERGE',
+  'TABLE_SPLIT',
+  'TABLE_ADD_ITEM',
+  'TABLE_UPDATE_NEW_ITEM',
+  'TABLE_DELETE_NEW_ITEM',
+  'TABLE_CANCEL_PREPARED_ITEM',
+  'KITCHEN_START',
+  'KITCHEN_READY',
+  'KITCHEN_CANCEL',
+  'KITCHEN_REPRINT',
+  'SHIFT_OPEN',
+  'SHIFT_CLOSE',
+  'CASH_MOVEMENT_IN',
+  'CASH_MOVEMENT_OUT',
+  'PRODUCT_MANAGE',
+  'REPORT_VIEW',
+  'CUSTOMER_MANAGE',
+  'CAMPAIGN_MANAGE',
+  'STAFF_MANAGE',
+  'MANAGER_APPROVE',
+];
+
+export const roleActionPermissions: Record<StoreRole, ActionPermission[]> = {
+  [StoreRole.OWNER]: managerActions,
+  [StoreRole.MANAGER]: managerActions,
+  [StoreRole.CASHIER]: [
+    'ORDER_PAY',
+    'ORDER_REFUND',
+    'ORDER_VOID',
+    'ORDER_CANCEL_OPEN',
+    'ORDER_REPRINT',
+    'ORDER_MANUAL_DISCOUNT',
+    'ORDER_APPLY_PROMOTION',
+    'TABLE_OPEN',
+    'TABLE_TRANSFER',
+    'TABLE_MERGE',
+    'TABLE_SPLIT',
+    'TABLE_ADD_ITEM',
+    'TABLE_UPDATE_NEW_ITEM',
+    'TABLE_DELETE_NEW_ITEM',
+    'SHIFT_OPEN',
+    'SHIFT_CLOSE',
+    'CASH_MOVEMENT_IN',
+    'CASH_MOVEMENT_OUT',
+    'CUSTOMER_MANAGE',
+  ],
+  [StoreRole.KITCHEN]: ['KITCHEN_START', 'KITCHEN_READY', 'KITCHEN_CANCEL', 'KITCHEN_REPRINT'],
+  [StoreRole.WAITER]: ['TABLE_OPEN', 'TABLE_ADD_ITEM', 'TABLE_UPDATE_NEW_ITEM', 'TABLE_DELETE_NEW_ITEM', 'KITCHEN_REPRINT'],
+  [StoreRole.STAFF]: ['ORDER_PAY', 'TABLE_OPEN', 'TABLE_ADD_ITEM', 'TABLE_UPDATE_NEW_ITEM', 'KITCHEN_START', 'KITCHEN_READY'],
+};
+
+export const roleMenuMatrix: Record<StoreRole, PosMenuKey[]> = {
+  [StoreRole.OWNER]: ['SELL', 'TABLES', 'ORDERS', 'KITCHEN', 'SHIFT', 'SETTINGS'],
+  [StoreRole.MANAGER]: ['SELL', 'TABLES', 'ORDERS', 'KITCHEN', 'SHIFT', 'SETTINGS'],
+  [StoreRole.CASHIER]: ['SELL', 'TABLES', 'ORDERS', 'SHIFT', 'SETTINGS'],
+  [StoreRole.KITCHEN]: ['KITCHEN', 'SETTINGS'],
+  [StoreRole.WAITER]: ['TABLES', 'SETTINGS'],
+  [StoreRole.STAFF]: ['SELL', 'TABLES', 'ORDERS', 'KITCHEN', 'SHIFT', 'SETTINGS'],
+};
+
+export function hasActionPermission(role: StoreRole, action: ActionPermission) {
+  return roleActionPermissions[role]?.includes(action) ?? false;
+}

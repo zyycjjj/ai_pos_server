@@ -4,6 +4,7 @@ import { Decimal } from '@prisma/client/runtime/library';
 
 import { StoreContextService } from '@/common/store-context.service';
 import { toMoney, toMoneyNumber } from '@/common/utils/money';
+import { ApprovalsService } from '@/modules/approvals/approvals.service';
 import type { AuthRequestUser } from '@/modules/auth/auth.types';
 import { PrismaService } from '@/prisma/prisma.service';
 
@@ -25,6 +26,7 @@ export class ShiftsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storeContext?: StoreContextService,
+    private readonly approvalsService?: ApprovalsService,
   ) {}
 
   async getActiveShift(currentUser: AuthRequestUser) {
@@ -101,6 +103,12 @@ export class ShiftsService {
     if (amount.greaterThan(summary.expectedCash)) {
       throw new BadRequestException('Cash out cannot exceed expected cash.');
     }
+    await this.approvalsService?.requireApproval({
+      action: 'CASH_MOVEMENT_OUT',
+      amount: toMoneyNumber(amount),
+      currentUser,
+      managerApproval: dto.managerApproval,
+    });
     return this.createManualMovement(id, CashMovementType.CASH_OUT, dto, currentUser);
   }
 

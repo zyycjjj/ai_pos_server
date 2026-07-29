@@ -1,6 +1,8 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsArray, IsBoolean, IsIn, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { IsArray, IsBoolean, IsIn, IsNumber, IsOptional, IsString, MaxLength, Min, ValidateNested } from 'class-validator';
+
+import { ManagerApprovalDto } from '@/modules/approvals/dto/manager-approval.dto';
 
 export class ListKitchenTicketsDto {
   @IsOptional()
@@ -80,6 +82,11 @@ export class CancelKitchenTicketDto {
   @IsString()
   @MaxLength(500)
   reason!: string;
+
+  @ApiPropertyOptional({ type: ManagerApprovalDto })
+  @IsOptional()
+  @ValidateNested()
+  managerApproval?: ManagerApprovalDto;
 }
 
 export class UpdateKitchenPrintModeDto {

@@ -2,6 +2,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { ArrayMinSize, IsArray, IsIn, IsInt, IsNumber, IsOptional, IsString, MaxLength, Min, ValidateNested } from 'class-validator';
 
+import { ManagerApprovalDto } from '@/modules/approvals/dto/manager-approval.dto';
+
 export class OrderReasonDto {
   @ApiProperty({ maxLength: 500 })
   @IsString()
@@ -14,6 +16,18 @@ export class VoidOrderDto extends OrderReasonDto {
   @IsOptional()
   @IsString()
   approvedById?: string;
+
+  @ApiPropertyOptional({ type: ManagerApprovalDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ManagerApprovalDto)
+  managerApproval?: ManagerApprovalDto;
+
+  @ApiPropertyOptional({ type: ManagerApprovalDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ManagerApprovalDto)
+  approval?: ManagerApprovalDto;
 }
 
 export class RefundOrderItemDto {
@@ -64,4 +78,16 @@ export class RefundOrderDto {
   @IsOptional()
   @IsString()
   approvedById?: string;
+
+  @ApiPropertyOptional({ type: ManagerApprovalDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ManagerApprovalDto)
+  managerApproval?: ManagerApprovalDto;
+
+  @ApiPropertyOptional({ type: ManagerApprovalDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ManagerApprovalDto)
+  approval?: ManagerApprovalDto;
 }

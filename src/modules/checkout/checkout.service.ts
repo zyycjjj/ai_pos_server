@@ -6,6 +6,7 @@ import { multiplyMoney, toMoneyNumber } from '@/common/utils/money';
 import { presentOrder } from '@/common/utils/order-presenter';
 import { StoreContextService } from '@/common/store-context.service';
 import { PrismaService } from '@/prisma/prisma.service';
+import { ApprovalsService } from '@/modules/approvals/approvals.service';
 import { CustomersService, type ResolvedOrderCustomer } from '@/modules/customers/customers.service';
 import { KitchenService } from '@/modules/kitchen/kitchen.service';
 import { PrintService } from '@/modules/print/print.service';
@@ -49,6 +50,7 @@ export class CheckoutService {
     private readonly kitchenService?: KitchenService,
     private readonly printService?: PrintService,
     private readonly customersService?: CustomersService,
+    private readonly approvalsService?: ApprovalsService,
   ) {}
 
   async listOrders(query: ListOrdersDto) {
@@ -79,6 +81,7 @@ export class CheckoutService {
     const customerInput = this.pickCustomerInput(dto);
     const customer = await this.resolveCustomerBeforePricing(storeId, customerInput);
     const orderDraft = await this.buildOrderDraft(dto, currentUser, customer?.customerId);
+    await this.requireManualDiscountApproval(orderDraft.manualDiscountAmount, dto, currentUser);
     await this.assertDineInTableAvailable(orderDraft.orderType, orderDraft.tableId);
     const total = orderDraft.total;
     const paymentResult = validatePaymentLines(dto.payments, total);
@@ -358,7 +361,6 @@ export class CheckoutService {
   }
 
   async voidOrder(id: string, dto: VoidOrderDto, currentUser?: AuthRequestUser) {
-    this.assertManagerApproval(currentUser);
     const order = await this.findOrder(id);
     if (order.status === OrderStatus.VOIDED) {
       return presentOrder(order);
@@ -369,6 +371,12 @@ export class CheckoutService {
     if (getRefundedAmount(order).greaterThan(0)) {
       throw new BadRequestException('Refunded orders cannot be voided.');
     }
+    const approval = await this.requireManagerApproval({
+      action: 'ORDER_VOID',
+      currentUser,
+      managerApproval: dto.managerApproval,
+      approval: dto.approval,
+    });
 
     const updated = await this.prisma.$transaction(
       async (tx) => {
@@ -386,7 +394,7 @@ export class CheckoutService {
             toStatus: OrderStatus.VOIDED,
             reason: dto.reason,
             operatorId: currentUser?.id,
-            approvedById: dto.approvedById ?? currentUser?.id,
+            approvedById: approval.approvedById ?? dto.approvedById ?? (this.isManager(currentUser) ? currentUser?.id : undefined),
           },
         });
         await this.kitchenService?.cancelUnfinishedTicketsForOrder(tx, {
@@ -406,7 +414,6 @@ export class CheckoutService {
   }
 
   async refundOrder(id: string, dto: RefundOrderDto, currentUser?: AuthRequestUser) {
-    this.assertManagerApproval(currentUser);
     const storeId = this.getStoreId();
     const existingRefund = await this.prisma.refund.findUnique({
       where: { storeId_idempotencyKey: { storeId, idempotencyKey: dto.idempotencyKey } },
@@ -427,6 +434,13 @@ export class CheckoutService {
     const refundPlan = buildRefundPlan(order, dto);
     const updatedStatus = resolveRefundedStatus(order, refundPlan.amount);
     const refundNumber = this.createRefundNumber();
+    const approval = await this.requireManagerApproval({
+      action: 'ORDER_REFUND',
+      amount: toMoneyNumber(refundPlan.amount),
+      currentUser,
+      managerApproval: dto.managerApproval,
+      approval: dto.approval,
+    });
 
     const activeShift =
       (dto.method ?? order.paymentMethod ?? PaymentMethod.MANUAL) === PaymentMethod.CASH && currentUser
@@ -446,7 +460,7 @@ export class CheckoutService {
             amount: refundPlan.amount,
             reason: dto.reason,
             operatorId: currentUser?.id,
-            approvedById: dto.approvedById ?? currentUser?.id,
+            approvedById: approval.approvedById ?? dto.approvedById ?? (this.isManager(currentUser) ? currentUser?.id : undefined),
             items: refundPlan.items.length > 0 ? { create: refundPlan.items } : undefined,
           },
           include: { items: true },
@@ -463,11 +477,24 @@ export class CheckoutService {
             fromStatus: order.status,
             toStatus: updatedStatus,
             amount: refundPlan.amount,
-            reason: dto.reason,
+            reason: approval.reason ? `${dto.reason} | approval: ${approval.reason}` : dto.reason,
             operatorId: currentUser?.id,
-            approvedById: dto.approvedById ?? currentUser?.id,
+            approvedById: approval.approvedById ?? dto.approvedById ?? (this.isManager(currentUser) ? currentUser?.id : undefined),
           },
         });
+        if (approval.approvedById) {
+          await tx.orderAuditLog.create({
+            data: {
+              storeId,
+              orderId: id,
+              action: OrderAuditAction.MANAGER_APPROVAL,
+              amount: refundPlan.amount,
+              reason: approval.reason ?? dto.reason,
+              operatorId: currentUser?.id,
+              approvedById: approval.approvedById,
+            },
+          });
+        }
         if (createdRefund.method === PaymentMethod.CASH && activeShift && this.shiftsService) {
           await this.shiftsService.recordCashRefundMovement(tx, {
             storeId,
@@ -522,12 +549,6 @@ export class CheckoutService {
     const timestamp = new Date().toISOString().replace(/\D/g, '').slice(0, 14);
     const suffix = Math.random().toString(36).slice(2, 6).toUpperCase();
     return `REF-${timestamp}-${suffix}`;
-  }
-
-  private assertManagerApproval(currentUser?: AuthRequestUser) {
-    if (!currentUser || (currentUser.role !== StoreRole.OWNER && currentUser.role !== StoreRole.MANAGER)) {
-      throw new BadRequestException('Manager approval is required.');
-    }
   }
 
   private presentRefund(refund: Prisma.RefundGetPayload<{ include: { items: true } }>) {
@@ -791,7 +812,7 @@ export class CheckoutService {
     });
 
     const subtotal = items.reduce((sum, item) => sum.plus(item.lineTotal), new Decimal(0)).toDecimalPlaces(2);
-    this.assertDiscountPermission(subtotal, dto.adjustment, currentUser);
+    this.assertDiscountPermission(subtotal, dto.adjustment);
     const promotionResult = await evaluateCheckoutPromotions(this.prisma, {
       storeId,
       subtotal,
@@ -879,16 +900,41 @@ export class CheckoutService {
     };
   }
 
-  private assertDiscountPermission(subtotal: Decimal, adjustment: CreateOrderDto['adjustment'], currentUser?: AuthRequestUser) {
+  private assertDiscountPermission(subtotal: Decimal, adjustment: CreateOrderDto['adjustment']) {
     if (!adjustment) return;
     const result = calculateManualAdjustment(subtotal, adjustment);
     const ratio = subtotal.equals(0) ? new Decimal(0) : result.amount.div(subtotal).mul(100);
-    if (ratio.greaterThan(30) && currentUser?.role !== StoreRole.OWNER && currentUser?.role !== StoreRole.MANAGER) {
+    if (ratio.greaterThan(100)) {
       throw new BadRequestException({
-        code: 'MANAGER_APPROVAL_REQUIRED',
-        message: 'Manager approval is required for discounts above 30%.',
+        code: 'DISCOUNT_INVALID',
+        message: 'Manual discount cannot exceed subtotal.',
       });
     }
+  }
+
+  private async requireManualDiscountApproval(manualDiscountAmount: Decimal, dto: CreateOrderDto, currentUser?: AuthRequestUser) {
+    if (manualDiscountAmount.lessThanOrEqualTo(0)) return;
+    if (!currentUser) return;
+    await this.requireManagerApproval({
+      action: 'ORDER_MANUAL_DISCOUNT',
+      amount: toMoneyNumber(manualDiscountAmount),
+      currentUser,
+      managerApproval: dto.managerApproval,
+    });
+  }
+
+  private async requireManagerApproval(input: Parameters<ApprovalsService['requireApproval']>[0]) {
+    if (!this.approvalsService) {
+      if (!input.currentUser || !this.isManager(input.currentUser)) {
+        throw new BadRequestException({ code: 'MANAGER_APPROVAL_REQUIRED', message: 'Manager approval is required.' });
+      }
+      return {};
+    }
+    return this.approvalsService.requireApproval(input);
+  }
+
+  private isManager(currentUser?: AuthRequestUser) {
+    return currentUser?.role === StoreRole.OWNER || currentUser?.role === StoreRole.MANAGER;
   }
 
   private assertProductOrderable(product: Pick<ProductWithModifiers, 'id' | 'name' | 'isActive' | 'availabilityStatus'>) {

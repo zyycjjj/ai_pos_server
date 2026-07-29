@@ -1,6 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { ValidateNested, IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+
+import { ManagerApprovalDto } from '@/modules/approvals/dto/manager-approval.dto';
 
 export class OpenShiftDto {
   @ApiProperty({ minimum: 0 })
@@ -41,4 +43,10 @@ export class CashMovementDto {
   @IsString()
   @MaxLength(500)
   reason: string;
+
+  @ApiPropertyOptional({ type: ManagerApprovalDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ManagerApprovalDto)
+  managerApproval?: ManagerApprovalDto;
 }

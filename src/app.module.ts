@@ -7,6 +7,7 @@ import { AuthMiddleware } from './common/auth.middleware';
 import { RpcMiddleware } from './common/rpc.middleware';
 import { AdminModule } from './modules/admin/admin.module';
 import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { ApprovalsModule } from './modules/approvals/approvals.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { AiModule } from './modules/ai/ai.module';
 import { BusinessDayModule } from './modules/business-day/business-day.module';
@@ -17,6 +18,7 @@ import { HealthModule } from './modules/health/health.module';
 import { KitchenModule } from './modules/kitchen/kitchen.module';
 import { MetricsModule } from './modules/metrics/metrics.module';
 import { ProductsModule } from './modules/products/products.module';
+import { PermissionsModule } from './modules/permissions/permissions.module';
 import { PrintModule } from './modules/print/print.module';
 import { ReceiptsModule } from './modules/receipts/receipts.module';
 import { ReportsModule } from './modules/reports/reports.module';
@@ -43,6 +45,8 @@ import { useZenFactory } from './zenstack/useZenFactory';
     }),
     HealthModule,
     AuthModule,
+    PermissionsModule,
+    ApprovalsModule,
     AdminModule,
     AnalyticsModule,
     AiModule,

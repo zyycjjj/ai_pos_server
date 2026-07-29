@@ -2,6 +2,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { ArrayMinSize, IsArray, IsIn, IsInt, IsNumber, IsOptional, IsString, MaxLength, Min, ValidateNested } from 'class-validator';
 
+import { ManagerApprovalDto } from '@/modules/approvals/dto/manager-approval.dto';
+
 export class CreateOrderAdjustmentDto {
   @ApiProperty({ enum: ['discount', 'percentage_discount', 'fixed_reduction', 'price_override'] })
   @IsString()
@@ -179,6 +181,12 @@ export class CreateOrderDto {
   @IsString()
   @MaxLength(8)
   currency?: string;
+
+  @ApiPropertyOptional({ type: ManagerApprovalDto })
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => ManagerApprovalDto)
+  managerApproval?: ManagerApprovalDto;
 }
 
 export class CheckoutPreviewDto {
