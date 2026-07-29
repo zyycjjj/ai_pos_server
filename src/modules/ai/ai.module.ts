@@ -7,6 +7,10 @@ import { AiJobService } from './ai-job.service';
 import { AiService } from './ai.service';
 import { AnalyticsContextAdapter } from './context/analytics-context.adapter';
 import { CopilotContextRouter } from './context/copilot-context.router';
+import { BusinessDailyController } from './business-daily/business-daily.controller';
+import { BusinessDailyFallback } from './business-daily/business-daily-fallback';
+import { BusinessDailyRepository } from './business-daily/business-daily.repository';
+import { BusinessDailyService } from './business-daily/business-daily.service';
 import { CopilotApplicationService } from './copilot/copilot.application.service';
 import { CopilotController } from './copilot/copilot.controller';
 import { ConversationService } from './copilot/conversation.service';
@@ -18,7 +22,7 @@ import { DeterministicFallbackProvider } from './providers/deterministic-fallbac
 
 @Module({
   imports: [AnalyticsModule],
-  controllers: [AiController, CopilotController],
+  controllers: [AiController, CopilotController, BusinessDailyController],
   providers: [
     AiService,
     AiCampaignService,
@@ -30,6 +34,9 @@ import { DeterministicFallbackProvider } from './providers/deterministic-fallbac
     AnalyticsContextAdapter,
     CopilotContextRouter,
     AiExecutionService,
+    BusinessDailyService,
+    BusinessDailyRepository,
+    BusinessDailyFallback,
     DeepSeekProvider,
     DeterministicFallbackProvider,
   ],

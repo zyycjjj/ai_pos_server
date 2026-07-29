@@ -23,3 +23,13 @@ export class VersionController {
     return this.config.get<string>(key)?.trim() || 'unknown';
   }
 }
+
+@Controller('version.commit')
+export class VersionCommitController {
+  constructor(private readonly config: ConfigService) {}
+
+  @Get()
+  getCommit() {
+    return this.config.get<string>('AI_POS_COMMIT')?.trim() || 'unknown';
+  }
+}

@@ -1,8 +1,8 @@
 import { Module } from '@nestjs/common';
 
-import { VersionController } from './version.controller';
+import { VersionCommitController, VersionController } from './version.controller';
 
 @Module({
-  controllers: [VersionController],
+  controllers: [VersionController, VersionCommitController],
 })
 export class VersionModule {}
