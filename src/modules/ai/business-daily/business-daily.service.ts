@@ -46,7 +46,7 @@ export class BusinessDailyService {
   }
 
   async createCampaignDraft(dto: CreateCampaignDraftFromRecommendationDto, currentUser: AuthRequestUser) {
-    const template = dto.campaignTemplate ?? this.defaultTemplate(dto.type);
+    const template = dto.campaignTemplate ?? this.defaultTemplate(dto.type ?? 'CAMPAIGN');
     const spec = campaignSpec(template, dto);
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -155,7 +155,7 @@ export class BusinessDailyService {
   }
 }
 
-function resolveBusinessDailyRange(query: BusinessDailyQueryDto = {}): BusinessDailyRange {
+export function resolveBusinessDailyRange(query: BusinessDailyQueryDto = {}): BusinessDailyRange {
   const timezone = query.timezone ?? 'Asia/Shanghai';
   if (timezone !== 'Asia/Shanghai') throw new BadRequestException('AI Daily currently supports timezone Asia/Shanghai.');
   const preset = query.preset ?? (query.from || query.to ? 'custom' : 'today');
@@ -219,18 +219,19 @@ function formatDate(date: Date) {
 }
 
 function campaignSpec(template: BusinessDailyCampaignTemplate, dto: CreateCampaignDraftFromRecommendationDto) {
-  const baseName = dto.title.slice(0, 80);
+  const baseName = (dto.title ?? dto.recommendationId).slice(0, 80);
+  const goal = dto.reason ?? 'AI recommended campaign draft.';
   if (template === 'LOW_SELLING_PRODUCT_PROMO') {
-    return { name: `${baseName} Draft`, goal: dto.reason, type: CampaignType.ITEM_DISCOUNT, discountType: 'percentage', discountValue: 15, categoryName: null, thresholdAmount: null, promoCode: null, usageLimit: null, customerEligibilityMode: CustomerEligibilityMode.ALL_CUSTOMERS, bannerCopy: 'Try today’s featured item.', staffMessage: 'Offer this promo when guests are choosing.' };
+    return { name: `${baseName} Draft`, goal, type: CampaignType.ITEM_DISCOUNT, discountType: 'percentage', discountValue: 15, categoryName: null, thresholdAmount: null, promoCode: null, usageLimit: null, customerEligibilityMode: CustomerEligibilityMode.ALL_CUSTOMERS, bannerCopy: 'Try today’s featured item.', staffMessage: 'Offer this promo when guests are choosing.' };
   }
   if (template === 'CUSTOMER_REACTIVATION') {
-    return { name: `${baseName} Draft`, goal: dto.reason, type: CampaignType.PROMO_CODE, discountType: 'percentage', discountValue: 15, categoryName: null, thresholdAmount: null, promoCode: `BACK${Date.now().toString().slice(-4)}`, usageLimit: null, customerEligibilityMode: CustomerEligibilityMode.CUSTOMER_ONLY, bannerCopy: 'Welcome back offer.', staffMessage: 'Use only after manager review.' };
+    return { name: `${baseName} Draft`, goal, type: CampaignType.PROMO_CODE, discountType: 'percentage', discountValue: 15, categoryName: null, thresholdAmount: null, promoCode: `BACK${Date.now().toString().slice(-4)}`, usageLimit: null, customerEligibilityMode: CustomerEligibilityMode.CUSTOMER_ONLY, bannerCopy: 'Welcome back offer.', staffMessage: 'Use only after manager review.' };
   }
   if (template === 'TOP_CUSTOMER_REWARD') {
-    return { name: `${baseName} Draft`, goal: dto.reason, type: CampaignType.PROMO_CODE, discountType: 'percentage', discountValue: 10, categoryName: null, thresholdAmount: null, promoCode: `VIP${Date.now().toString().slice(-4)}`, usageLimit: null, customerEligibilityMode: CustomerEligibilityMode.CUSTOMER_ONLY, bannerCopy: 'A small thank-you for loyal guests.', staffMessage: 'Confirm eligibility before sharing.' };
+    return { name: `${baseName} Draft`, goal, type: CampaignType.PROMO_CODE, discountType: 'percentage', discountValue: 10, categoryName: null, thresholdAmount: null, promoCode: `VIP${Date.now().toString().slice(-4)}`, usageLimit: null, customerEligibilityMode: CustomerEligibilityMode.CUSTOMER_ONLY, bannerCopy: 'A small thank-you for loyal guests.', staffMessage: 'Confirm eligibility before sharing.' };
   }
   if (template === 'LUNCH_TIME_PROMO') {
-    return { name: `${baseName} Draft`, goal: dto.reason, type: CampaignType.ORDER_DISCOUNT, discountType: 'percentage', discountValue: 10, categoryName: null, thresholdAmount: null, promoCode: null, usageLimit: null, customerEligibilityMode: CustomerEligibilityMode.ALL_CUSTOMERS, bannerCopy: 'Lunch time special.', staffMessage: 'Use during lunch window after approval.' };
+    return { name: `${baseName} Draft`, goal, type: CampaignType.ORDER_DISCOUNT, discountType: 'percentage', discountValue: 10, categoryName: null, thresholdAmount: null, promoCode: null, usageLimit: null, customerEligibilityMode: CustomerEligibilityMode.ALL_CUSTOMERS, bannerCopy: 'Lunch time special.', staffMessage: 'Use during lunch window after approval.' };
   }
-  return { name: `${baseName} Draft`, goal: dto.reason, type: CampaignType.THRESHOLD_DISCOUNT, discountType: 'fixed_amount', discountValue: 5, categoryName: null, thresholdAmount: 50, promoCode: null, usageLimit: null, customerEligibilityMode: CustomerEligibilityMode.ALL_CUSTOMERS, bannerCopy: 'Save when the basket reaches the threshold.', staffMessage: 'Suggest only when the basket is close to the threshold.' };
+  return { name: `${baseName} Draft`, goal, type: CampaignType.THRESHOLD_DISCOUNT, discountType: 'fixed_amount', discountValue: 5, categoryName: null, thresholdAmount: 50, promoCode: null, usageLimit: null, customerEligibilityMode: CustomerEligibilityMode.ALL_CUSTOMERS, bannerCopy: 'Save when the basket reaches the threshold.', staffMessage: 'Suggest only when the basket is close to the threshold.' };
 }

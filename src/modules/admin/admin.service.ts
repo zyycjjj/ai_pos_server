@@ -469,6 +469,7 @@ export class AdminService {
       discountTotal: toMoneyNumber(campaign.discountTotal),
       timeWindow: campaign.timeWindow,
       category: this.inferCampaignCategory(campaign.structuredJson),
+      aiMetadata: this.inferAiCampaignMetadata(campaign.structuredJson),
       status: campaign.status,
       createdAt: campaign.createdAt.toISOString(),
     }));
@@ -561,6 +562,7 @@ export class AdminService {
       discountTotal: toMoneyNumber(campaign.discountTotal),
       timeWindow: campaign.timeWindow,
       category: this.inferCampaignCategory(campaign.structuredJson),
+      aiMetadata: this.inferAiCampaignMetadata(campaign.structuredJson),
       status: campaign.status,
       createdAt: campaign.createdAt.toISOString(),
     };
@@ -864,5 +866,33 @@ export class AdminService {
       }
     }
     return null;
+  }
+
+  private inferAiCampaignMetadata(value: unknown) {
+    if (!value || typeof value !== 'object') return null;
+    const metadata = (value as { aiMetadata?: unknown }).aiMetadata;
+    if (!metadata || typeof metadata !== 'object') return null;
+    const candidate = metadata as {
+      aiGenerated?: unknown;
+      aiSource?: unknown;
+      aiRecommendationType?: unknown;
+      aiRecommendationId?: unknown;
+      aiReason?: unknown;
+      aiEvidenceSnapshot?: unknown;
+      aiExpectedImpact?: unknown;
+      aiCreatedAt?: unknown;
+      aiRequiresManualCompletion?: unknown;
+    };
+    return {
+      aiGenerated: candidate.aiGenerated === true,
+      aiSource: typeof candidate.aiSource === 'string' ? candidate.aiSource : null,
+      aiRecommendationType: typeof candidate.aiRecommendationType === 'string' ? candidate.aiRecommendationType : null,
+      aiRecommendationId: typeof candidate.aiRecommendationId === 'string' ? candidate.aiRecommendationId : null,
+      aiReason: typeof candidate.aiReason === 'string' ? candidate.aiReason : null,
+      aiEvidenceCount: Array.isArray(candidate.aiEvidenceSnapshot) ? candidate.aiEvidenceSnapshot.length : 0,
+      aiExpectedImpact: candidate.aiExpectedImpact && typeof candidate.aiExpectedImpact === 'object' ? candidate.aiExpectedImpact : null,
+      aiCreatedAt: typeof candidate.aiCreatedAt === 'string' ? candidate.aiCreatedAt : null,
+      aiRequiresManualCompletion: candidate.aiRequiresManualCompletion === true,
+    };
   }
 }

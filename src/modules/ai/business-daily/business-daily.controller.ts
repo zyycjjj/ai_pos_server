@@ -9,13 +9,17 @@ import { RolesGuard } from '@/modules/auth/roles.guard';
 
 import { BusinessDailyService } from './business-daily.service';
 import { BusinessDailyQueryDto, CreateCampaignDraftFromRecommendationDto } from './dto/business-daily.dto';
+import { CampaignRecommendationService } from '../campaign-recommendation/campaign-recommendation.service';
 
 @ApiTags('admin-ai-business-daily')
 @Controller('admin/ai')
 @UseGuards(RolesGuard)
 @Roles(StoreRole.OWNER, StoreRole.MANAGER)
 export class BusinessDailyController {
-  constructor(private readonly service: BusinessDailyService) {}
+  constructor(
+    private readonly service: BusinessDailyService,
+    private readonly campaignRecommendations: CampaignRecommendationService,
+  ) {}
 
   @Get('business-daily')
   @ApiOperation({ summary: 'Generate an evidence-grounded AI business daily report.' })
@@ -26,12 +30,12 @@ export class BusinessDailyController {
   @Get('recommendations')
   @ApiOperation({ summary: 'List evidence-grounded AI recommendation cards.' })
   getRecommendations(@Query() query: BusinessDailyQueryDto, @CurrentUser() currentUser: AuthRequestUser) {
-    return this.service.getRecommendations(query, currentUser);
+    return this.campaignRecommendations.recommendations(query, currentUser);
   }
 
   @Post('campaign-drafts')
   @ApiOperation({ summary: 'Create a DRAFT campaign from an AI recommendation.' })
   createCampaignDraft(@Body() dto: CreateCampaignDraftFromRecommendationDto, @CurrentUser() currentUser: AuthRequestUser) {
-    return this.service.createCampaignDraft(dto, currentUser);
+    return this.campaignRecommendations.createDraft(dto, currentUser);
   }
 }
