@@ -33,10 +33,15 @@ import { DeepSeekMenuService } from './deepseek-menu.service';
 import { AiExecutionService } from './execution/ai-execution.service';
 import { DeepSeekProvider } from './providers/deepseek.provider';
 import { DeterministicFallbackProvider } from './providers/deterministic-fallback.provider';
+import { PlaybookEvidenceService } from './playbooks/playbook-evidence';
+import { PlaybookFallback } from './playbooks/playbook-fallback';
+import { PlaybooksController } from './playbooks/playbooks.controller';
+import { PlaybooksRepository } from './playbooks/playbooks.repository';
+import { PlaybooksService } from './playbooks/playbooks.service';
 
 @Module({
   imports: [AnalyticsModule],
-  controllers: [AiController, CopilotController, BusinessDailyController, BusinessQueryController, AiActionsController],
+  controllers: [AiController, CopilotController, BusinessDailyController, BusinessQueryController, AiActionsController, PlaybooksController],
   providers: [
     AiService,
     AiCampaignService,
@@ -65,6 +70,10 @@ import { DeterministicFallbackProvider } from './providers/deterministic-fallbac
     AiActionsService,
     AiActionsRepository,
     AiActionNormalizer,
+    PlaybooksService,
+    PlaybooksRepository,
+    PlaybookEvidenceService,
+    PlaybookFallback,
   ],
 })
 export class AiModule {}

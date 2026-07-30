@@ -258,6 +258,7 @@ enum AiActionSourceType {
   AI_WEEKLY
   AI_BOSS_DASHBOARD
   AI_ASK
+  AI_PLAYBOOK
   AI_CAMPAIGN_RECOMMENDATION
   MANUAL
 }
@@ -348,6 +349,7 @@ model Store {
   aiMessages             AiMessage[]
   aiExecutions           AiExecution[]
   aiActionItems          AiActionItem[]
+  aiPlaybookRuns         AiPlaybookRun[]
   customers              Customer[]
   customerSegments       CustomerSegment[]
   customerSegmentMembers CustomerSegmentMember[]
@@ -383,6 +385,7 @@ model User {
   createdLoyaltyPointLedgers LoyaltyPointLedger[]  @relation("LoyaltyPointLedgerCreatedBy")
   aiConversations            AiConversation[]
   aiMessages                 AiMessage[]
+  aiPlaybookRuns             AiPlaybookRun[]
   createdAiActions           AiActionItem[]        @relation("AiActionCreatedBy")
   assignedAiActions          AiActionItem[]        @relation("AiActionAssignedTo")
   handledAiActions           AiActionItem[]        @relation("AiActionHandledBy")
@@ -1125,6 +1128,25 @@ model AiExecution {
   @@index([conversationId])
   @@index([messageId])
   @@index([status])
+}
+
+model AiPlaybookRun {
+  id              String   @id() @default(cuid())
+  storeId         String
+  store           Store    @relation(fields: [storeId], references: [id])
+  userId          String
+  user            User     @relation(fields: [userId], references: [id])
+  type            String
+  rangeJson       Json
+  summaryHeadline String
+  status          String
+  resultJson      Json
+  createdAt       DateTime @default(now())
+
+  @@index([storeId])
+  @@index([userId])
+  @@index([storeId, type, createdAt])
+  @@index([storeId, status])
 }
 
 model AiActionItem {
