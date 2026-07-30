@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { StoreRole } from '@prisma/client';
 
@@ -27,5 +27,17 @@ export class BusinessQueryController {
   @ApiOperation({ summary: 'List recent natural-language business questions.' })
   history(@CurrentUser() currentUser: AuthRequestUser) {
     return this.service.historyFor(currentUser);
+  }
+
+  @Get('conversations')
+  @ApiOperation({ summary: 'List AI Ask conversation threads.' })
+  conversations() {
+    return this.service.conversationsFor();
+  }
+
+  @Get('conversations/:id')
+  @ApiOperation({ summary: 'Get an AI Ask conversation thread.' })
+  conversation(@Param('id') id: string) {
+    return this.service.conversationDetail(id);
   }
 }

@@ -18,6 +18,11 @@ export class BusinessQueryDto {
   @ApiPropertyOptional()
   @IsOptional()
   @IsString()
+  conversationId?: string | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
   from?: string | null;
 
   @ApiPropertyOptional()

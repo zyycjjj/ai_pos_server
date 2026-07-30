@@ -18,6 +18,8 @@ import { BusinessDailyService } from './business-daily/business-daily.service';
 import { BossDashboardFallback } from './boss-dashboard/boss-dashboard-fallback';
 import { BossDashboardService } from './boss-dashboard/boss-dashboard.service';
 import { BusinessQueryController } from './business-query/business-query.controller';
+import { BusinessQueryConversationRepository } from './business-query/business-query-conversation.repository';
+import { BusinessQueryDrilldown } from './business-query/business-query-drilldown';
 import { BusinessQueryFallback } from './business-query/business-query-fallback';
 import { BusinessQueryHistoryRepository } from './business-query/business-query-history.repository';
 import { BusinessQueryService } from './business-query/business-query.service';
@@ -53,6 +55,8 @@ import { DeterministicFallbackProvider } from './providers/deterministic-fallbac
     BossDashboardFallback,
     BusinessQueryService,
     BusinessQueryFallback,
+    BusinessQueryConversationRepository,
+    BusinessQueryDrilldown,
     BusinessQueryHistoryRepository,
     CampaignRecommendationService,
     CampaignRecommendationFallback,

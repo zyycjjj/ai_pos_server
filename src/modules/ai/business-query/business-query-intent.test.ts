@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
 import { BusinessQueryFallback } from './business-query-fallback';
+import { detectBusinessQueryFollowUpType, resolveBusinessQueryFollowUp } from './business-query-followup';
 import { classifyBusinessQueryIntent } from './business-query-intent';
 import type { BusinessQueryEvidence } from './business-query.types';
 import type { BusinessDailyReport } from '../business-daily/business-daily.types';
@@ -19,6 +20,64 @@ describe('business query intent classification', () => {
     assert.equal(classifyBusinessQueryIntent('帮我直接删除数据库'), 'UNSUPPORTED');
     assert.equal(classifyBusinessQueryIntent('查一下其他门店的营业额'), 'UNSUPPORTED');
     assert.equal(classifyBusinessQueryIntent('帮我写代码'), 'UNSUPPORTED');
+  });
+});
+
+describe('business query follow-up resolution', () => {
+  it('detects supported follow-up commands', () => {
+    assert.equal(detectBusinessQueryFollowUpType('具体是哪几笔？'), 'DETAIL_DRILLDOWN');
+    assert.equal(detectBusinessQueryFollowUpType('这些有什么共同点？'), 'COMMON_PATTERN');
+    assert.equal(detectBusinessQueryFollowUpType('那我该怎么办？'), 'NEXT_ACTION');
+    assert.equal(detectBusinessQueryFollowUpType('帮我保存成待办'), 'SAVE_ACTION');
+    assert.equal(detectBusinessQueryFollowUpType('生成一个召回活动草稿'), 'CAMPAIGN_DRAFT');
+    assert.equal(detectBusinessQueryFollowUpType('继续说'), 'REUSE');
+  });
+
+  it('reuses prior intent and requests evidence expansion for detail drilldowns', () => {
+    const resolution = resolveBusinessQueryFollowUp({
+      question: '具体是哪几笔？',
+      conversationId: 'conv_001',
+      classifiedIntent: 'GENERAL_BUSINESS_SUMMARY',
+      previousIntent: 'REFUND_ANALYSIS',
+    });
+
+    assert.equal(resolution.isFollowUp, true);
+    assert.equal(resolution.type, 'DETAIL_DRILLDOWN');
+    assert.equal(resolution.resolvedIntent, 'REFUND_ANALYSIS');
+    assert.equal(resolution.usePreviousEvidence, false);
+    assert.equal(resolution.expandEvidence, true);
+  });
+
+  it('keeps prior evidence for action and campaign follow-ups', () => {
+    const saveAction = resolveBusinessQueryFollowUp({
+      question: '帮我保存成待办',
+      conversationId: 'conv_001',
+      classifiedIntent: 'GENERAL_BUSINESS_SUMMARY',
+      previousIntent: 'KITCHEN_ANALYSIS',
+    });
+    const campaignDraft = resolveBusinessQueryFollowUp({
+      question: '生成一个召回活动草稿',
+      conversationId: 'conv_002',
+      classifiedIntent: 'CAMPAIGN_ANALYSIS',
+      previousIntent: 'CUSTOMER_ANALYSIS',
+    });
+
+    assert.equal(saveAction.type, 'SAVE_ACTION');
+    assert.equal(saveAction.resolvedIntent, 'KITCHEN_ANALYSIS');
+    assert.equal(saveAction.usePreviousEvidence, true);
+    assert.equal(campaignDraft.type, 'CAMPAIGN_DRAFT');
+    assert.equal(campaignDraft.resolvedIntent, 'CUSTOMER_ANALYSIS');
+    assert.equal(campaignDraft.usePreviousEvidence, true);
+  });
+
+  it('does not treat standalone short questions as follow-ups without prior context', () => {
+    const resolution = resolveBusinessQueryFollowUp({
+      question: '那我该怎么办？',
+      classifiedIntent: 'GENERAL_BUSINESS_SUMMARY',
+    });
+
+    assert.equal(resolution.isFollowUp, false);
+    assert.equal(resolution.resolvedIntent, 'GENERAL_BUSINESS_SUMMARY');
   });
 });
 

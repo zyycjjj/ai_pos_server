@@ -14,6 +14,14 @@ export function buildBusinessQueryPrompt(baseline: BusinessQueryResponse) {
     systemPrompt,
     userPrompt: JSON.stringify({
       task: 'Answer the owner/manager question using only evidence. Keep intent, range, evidence, and suggestedActions unchanged.',
+      context: {
+        isFollowUp: baseline.isFollowUp,
+        previousIntent: baseline.contextUsed.previousIntent ?? null,
+        previousRange: baseline.contextUsed.previousRange ?? null,
+        usedPreviousEvidence: baseline.contextUsed.usedPreviousEvidence,
+        expandedEvidence: baseline.contextUsed.expandedEvidence,
+      },
+      restrictions: ['Do not write SQL.', 'Do not access other stores.', 'Do not execute refunds, voids, inventory changes, or campaign activation.', 'If a campaign exists, it must be DRAFT unless explicitly activated by a manager elsewhere.'],
       requiredShape: {
         answer: {
           headline: 'string',

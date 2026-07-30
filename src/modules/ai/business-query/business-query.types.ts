@@ -23,6 +23,7 @@ export type BusinessQuerySuggestedActionKind =
 
 export type BusinessQueryDtoShape = {
   question: string;
+  conversationId?: string | null;
   preset?: BusinessDailyPreset;
   from?: string | null;
   to?: string | null;
@@ -62,8 +63,20 @@ export type BusinessQuerySuggestedAction = {
 };
 
 export type BusinessQueryResponse = {
+  conversationId: string;
+  messageId: string;
   question: string;
   intent: BusinessQueryIntent;
+  resolvedIntent: BusinessQueryIntent;
+  isFollowUp: boolean;
+  contextUsed: {
+    previousIntent?: BusinessQueryIntent | null;
+    previousRange?: Omit<BusinessDailyRange, 'start' | 'end'> | null;
+    usedPreviousEvidence: boolean;
+    expandedEvidence: boolean;
+    actionCreated?: boolean;
+    campaignDraftCreated?: boolean;
+  };
   range: Omit<BusinessDailyRange, 'start' | 'end'>;
   answer: BusinessQueryAnswer;
   evidence: BusinessQueryEvidence[];
@@ -74,8 +87,40 @@ export type BusinessQueryResponse = {
 
 export type BusinessQueryHistoryItem = {
   id: string;
+  conversationId?: string;
   question: string;
   intent: BusinessQueryIntent;
   headline: string;
   createdAt: string;
+};
+
+export type BusinessQueryConversationSummary = {
+  id: string;
+  title: string;
+  lastIntent: BusinessQueryIntent | null;
+  lastAnswerHeadline: string | null;
+  updatedAt: string;
+};
+
+export type BusinessQueryConversationMessage = {
+  id: string;
+  role: 'USER' | 'ASSISTANT' | 'SYSTEM';
+  content: string;
+  question?: string;
+  answer?: BusinessQueryAnswer;
+  intent?: BusinessQueryIntent;
+  resolvedIntent?: BusinessQueryIntent;
+  range?: Omit<BusinessDailyRange, 'start' | 'end'>;
+  evidence?: BusinessQueryEvidence[];
+  suggestedActions?: BusinessQuerySuggestedAction[];
+  fallback?: boolean;
+  contextUsed?: BusinessQueryResponse['contextUsed'];
+  result?: unknown;
+  createdAt: string;
+};
+
+export type BusinessQueryConversationDetail = {
+  id: string;
+  title: string;
+  messages: BusinessQueryConversationMessage[];
 };
