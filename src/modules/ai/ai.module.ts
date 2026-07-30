@@ -5,6 +5,10 @@ import { AiCampaignService } from './campaign.service';
 import { AiController } from './ai.controller';
 import { AiJobService } from './ai-job.service';
 import { AiService } from './ai.service';
+import { AiActionNormalizer } from './actions/ai-action-normalizer';
+import { AiActionsController } from './actions/ai-actions.controller';
+import { AiActionsRepository } from './actions/ai-actions.repository';
+import { AiActionsService } from './actions/ai-actions.service';
 import { AnalyticsContextAdapter } from './context/analytics-context.adapter';
 import { CopilotContextRouter } from './context/copilot-context.router';
 import { BusinessDailyController } from './business-daily/business-daily.controller';
@@ -30,7 +34,7 @@ import { DeterministicFallbackProvider } from './providers/deterministic-fallbac
 
 @Module({
   imports: [AnalyticsModule],
-  controllers: [AiController, CopilotController, BusinessDailyController, BusinessQueryController],
+  controllers: [AiController, CopilotController, BusinessDailyController, BusinessQueryController, AiActionsController],
   providers: [
     AiService,
     AiCampaignService,
@@ -54,6 +58,9 @@ import { DeterministicFallbackProvider } from './providers/deterministic-fallbac
     CampaignRecommendationFallback,
     DeepSeekProvider,
     DeterministicFallbackProvider,
+    AiActionsService,
+    AiActionsRepository,
+    AiActionNormalizer,
   ],
 })
 export class AiModule {}

@@ -253,6 +253,55 @@ enum AiExecutionStatus {
   FALLBACK
 }
 
+enum AiActionSourceType {
+  AI_DAILY
+  AI_WEEKLY
+  AI_BOSS_DASHBOARD
+  AI_ASK
+  AI_CAMPAIGN_RECOMMENDATION
+  MANUAL
+}
+
+enum AiActionType {
+  VIEW_REPORT
+  VIEW_ORDER
+  VIEW_PRODUCT
+  VIEW_CUSTOMER
+  VIEW_CAMPAIGN
+  VIEW_KITCHEN
+  VIEW_TABLE
+  CREATE_CAMPAIGN_DRAFT
+  REVIEW_REFUND
+  REVIEW_DISCOUNT
+  REVIEW_KITCHEN_OVERDUE
+  REVIEW_CUSTOMER_REACTIVATION
+  MANUAL_NOTE
+}
+
+enum AiActionPriority {
+  HIGH
+  MEDIUM
+  LOW
+}
+
+enum AiActionStatus {
+  OPEN
+  DONE
+  DISMISSED
+}
+
+enum AiActionTargetType {
+  REPORT
+  ORDER
+  PRODUCT
+  CUSTOMER
+  CAMPAIGN
+  KITCHEN_STATION
+  TABLE
+  AI_RECOMMENDATION
+  NONE
+}
+
 enum CustomerStatus {
   ACTIVE
   INACTIVE
@@ -298,6 +347,7 @@ model Store {
   aiConversations        AiConversation[]
   aiMessages             AiMessage[]
   aiExecutions           AiExecution[]
+  aiActionItems          AiActionItem[]
   customers              Customer[]
   customerSegments       CustomerSegment[]
   customerSegmentMembers CustomerSegmentMember[]
@@ -333,6 +383,9 @@ model User {
   createdLoyaltyPointLedgers LoyaltyPointLedger[]  @relation("LoyaltyPointLedgerCreatedBy")
   aiConversations            AiConversation[]
   aiMessages                 AiMessage[]
+  createdAiActions           AiActionItem[]        @relation("AiActionCreatedBy")
+  assignedAiActions          AiActionItem[]        @relation("AiActionAssignedTo")
+  handledAiActions           AiActionItem[]        @relation("AiActionHandledBy")
   createdAt                  DateTime              @default(now())
   updatedAt                  DateTime              @updatedAt()
 }
@@ -1072,4 +1125,44 @@ model AiExecution {
   @@index([conversationId])
   @@index([messageId])
   @@index([status])
+}
+
+model AiActionItem {
+  id                   String             @id() @default(cuid())
+  storeId              String
+  store                Store              @relation(fields: [storeId], references: [id])
+  createdByUserId      String
+  createdBy            User               @relation("AiActionCreatedBy", fields: [createdByUserId], references: [id])
+  assignedToUserId     String?
+  assignedTo           User?              @relation("AiActionAssignedTo", fields: [assignedToUserId], references: [id])
+  sourceType           AiActionSourceType
+  sourceId             String?
+  sourceTitle          String?
+  actionType           AiActionType
+  priority             AiActionPriority   @default(MEDIUM)
+  status               AiActionStatus     @default(OPEN)
+  title                String
+  description          String?            @db.Text()
+  reason               String?            @db.Text()
+  targetType           AiActionTargetType @default(NONE)
+  targetId             String?
+  targetUrl            String?
+  payloadJson          Json?
+  evidenceSnapshotJson Json?
+  resultJson           Json?
+  handledByUserId      String?
+  handledBy            User?              @relation("AiActionHandledBy", fields: [handledByUserId], references: [id])
+  handledAt            DateTime?
+  handledNote          String?            @db.Text()
+  dismissReason        String?            @db.Text()
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt()
+
+  @@index([storeId])
+  @@index([storeId, status])
+  @@index([storeId, priority])
+  @@index([storeId, sourceType])
+  @@index([storeId, actionType])
+  @@index([createdByUserId])
+  @@index([handledByUserId])
 }
