@@ -13,6 +13,10 @@ import { BusinessDailyRepository } from './business-daily/business-daily.reposit
 import { BusinessDailyService } from './business-daily/business-daily.service';
 import { BossDashboardFallback } from './boss-dashboard/boss-dashboard-fallback';
 import { BossDashboardService } from './boss-dashboard/boss-dashboard.service';
+import { BusinessQueryController } from './business-query/business-query.controller';
+import { BusinessQueryFallback } from './business-query/business-query-fallback';
+import { BusinessQueryHistoryRepository } from './business-query/business-query-history.repository';
+import { BusinessQueryService } from './business-query/business-query.service';
 import { CampaignRecommendationFallback } from './campaign-recommendation/campaign-recommendation-fallback';
 import { CampaignRecommendationService } from './campaign-recommendation/campaign-recommendation.service';
 import { CopilotApplicationService } from './copilot/copilot.application.service';
@@ -26,7 +30,7 @@ import { DeterministicFallbackProvider } from './providers/deterministic-fallbac
 
 @Module({
   imports: [AnalyticsModule],
-  controllers: [AiController, CopilotController, BusinessDailyController],
+  controllers: [AiController, CopilotController, BusinessDailyController, BusinessQueryController],
   providers: [
     AiService,
     AiCampaignService,
@@ -43,6 +47,9 @@ import { DeterministicFallbackProvider } from './providers/deterministic-fallbac
     BusinessDailyFallback,
     BossDashboardService,
     BossDashboardFallback,
+    BusinessQueryService,
+    BusinessQueryFallback,
+    BusinessQueryHistoryRepository,
     CampaignRecommendationService,
     CampaignRecommendationFallback,
     DeepSeekProvider,
