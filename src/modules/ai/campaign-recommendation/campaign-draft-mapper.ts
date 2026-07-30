@@ -5,6 +5,7 @@ import { toMoneyNumber } from '@/common/utils/money';
 import type { PrismaService } from '@/prisma/prisma.service';
 
 import type { AuthRequestUser } from '@/modules/auth/auth.types';
+import { assertCampaignDraftSafety } from '@/modules/ai/guardrails/ai-campaign-draft-guard';
 import type { BusinessDailyEvidence } from '../business-daily/business-daily.types';
 import type { AiCampaignDraftAdjustments, AiCampaignDraftMetadata, AiCampaignRecommendation } from './campaign-recommendation.types';
 
@@ -43,6 +44,7 @@ export async function createCampaignDraftFromRecommendation(input: {
     aiCreatedAt: new Date().toISOString(),
     aiRequiresManualCompletion: draft.requiresManualCompletion,
   };
+  assertCampaignDraftSafety({ status: CampaignStatus.DRAFT, aiMetadata: metadata });
 
   const campaign = await input.prisma.campaign.create({
     data: {

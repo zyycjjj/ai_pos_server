@@ -3,6 +3,9 @@ import { randomUUID } from 'node:crypto';
 
 import { StoreContextService } from '@/common/store-context.service';
 import type { AuthRequestUser } from '@/modules/auth/auth.types';
+import { collectEvidenceRefNodes } from '@/modules/ai/guardrails/ai-evidence-validator';
+import { validateAiOutput } from '@/modules/ai/guardrails/ai-output-validator';
+import { validateSuggestedActions } from '@/modules/ai/guardrails/ai-suggested-action-validator';
 
 import { BusinessDailyFallback } from '../business-daily/business-daily-fallback';
 import { BusinessDailyRepository } from '../business-daily/business-daily.repository';
@@ -44,6 +47,8 @@ export class PlaybooksService {
     const evidence = await this.evidence.collect({ storeId, definition, current, previous, range });
     const runId = `playbook_${randomUUID()}`;
     const result = this.fallback.generate({ runId, definition, current, previous, evidence });
+    const quality = validatePlaybookResult(result);
+    if (!quality.ok) throw new BadRequestException('AI playbook result failed quality validation.');
     return this.repository.create(storeId, currentUser.id, result);
   }
 
@@ -54,6 +59,28 @@ export class PlaybooksService {
   detail(id: string) {
     return this.repository.detail(this.storeContext.getStoreId(), id);
   }
+}
+
+export function validatePlaybookResult(result: import('./playbooks.types').AiPlaybookResult) {
+  const output = validateAiOutput('AI Scenario Playbook', result, {
+    requiredFields: ['runId', 'type', 'title', 'range', 'summary', 'steps', 'findings', 'risks', 'recommendedActions', 'evidence', 'generatedAt'],
+    arrayFields: ['steps', 'findings', 'risks', 'recommendedActions', 'evidence'],
+    nonEmptyTextFields: ['summary.headline'],
+    enumFields: { 'summary.status': ['GOOD', 'ATTENTION', 'RISK', 'DATA_INSUFFICIENT'] },
+    evidenceRequired: result.evidence.length > 0,
+    evidenceNodes: collectEvidenceRefNodes({
+      steps: result.steps,
+      findings: result.findings,
+      risks: result.risks,
+      recommendedActions: result.recommendedActions,
+    }),
+  });
+  const actions = validateSuggestedActions(result.recommendedActions, result.evidence, {
+    path: 'recommendedActions',
+    allowedKinds: ['VIEW_REPORT', 'VIEW_PRODUCT', 'VIEW_CUSTOMER', 'VIEW_CAMPAIGNS', 'CREATE_CAMPAIGN_DRAFT', 'VIEW_KITCHEN', 'VIEW_TABLES', 'SAVE_ACTION'],
+    allowedActionTypes: ['VIEW_REPORT', 'VIEW_ORDER', 'VIEW_PRODUCT', 'VIEW_CUSTOMER', 'VIEW_CAMPAIGN', 'VIEW_KITCHEN', 'CREATE_CAMPAIGN_DRAFT', 'REVIEW_REFUND', 'REVIEW_KITCHEN_OVERDUE', 'REVIEW_CUSTOMER_REACTIVATION'],
+  });
+  return { ok: output.ok && actions.ok, value: result, issues: [...output.issues, ...actions.issues] };
 }
 
 function previousComparableRange(range: BusinessDailyRange): BusinessDailyRange {

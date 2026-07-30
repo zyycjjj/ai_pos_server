@@ -4,6 +4,7 @@ import { AiActionStatus, AiActionType, CampaignStatus, CampaignType, CustomerEli
 import { StoreContextService } from '@/common/store-context.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import type { AuthRequestUser } from '@/modules/auth/auth.types';
+import { assertCampaignDraftSafety } from '@/modules/ai/guardrails/ai-campaign-draft-guard';
 
 import { AiActionNormalizer } from './ai-action-normalizer';
 import { AiActionsRepository } from './ai-actions.repository';
@@ -65,6 +66,18 @@ export class AiActionsService {
     if (item.status !== AiActionStatus.OPEN) throw new BadRequestException('Only OPEN AI campaign draft actions can create a draft.');
     const payload = readObject(item.payloadJson);
     const spec = campaignSpecFromPayload(item.title, item.reason, payload);
+    const aiMetadata = {
+      aiGenerated: true,
+      aiSource: 'ai_action_workspace',
+      aiActionId: item.id,
+      aiActionSourceType: item.sourceType,
+      aiActionSourceId: item.sourceId,
+      aiEvidenceSnapshot: item.evidenceSnapshotJson ?? [],
+      aiActionPayload: item.payloadJson ?? {},
+      aiCreatedAt: new Date().toISOString(),
+      aiRequiresManualCompletion: true,
+    };
+    assertCampaignDraftSafety({ status: CampaignStatus.DRAFT, aiMetadata });
     const startsAt = startOfTomorrow();
     const endsAt = addDays(startsAt, spec.durationDays);
     const result = await this.prisma.$transaction(async (tx) => {
@@ -92,11 +105,7 @@ export class AiActionsService {
           createdById: currentUser.id,
           structuredJson: {
             source: 'ai_action_workspace',
-            aiActionId: item.id,
-            aiActionSourceType: item.sourceType,
-            aiActionSourceId: item.sourceId,
-            aiActionEvidenceSnapshot: item.evidenceSnapshotJson ?? [],
-            aiActionPayload: item.payloadJson ?? {},
+            aiMetadata: aiMetadata as unknown as Prisma.InputJsonValue,
             createdAt: new Date().toISOString(),
           } satisfies Prisma.InputJsonObject,
         },

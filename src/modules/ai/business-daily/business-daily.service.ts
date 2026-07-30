@@ -6,6 +6,10 @@ import { StoreContextService } from '@/common/store-context.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import type { AuthRequestUser } from '@/modules/auth/auth.types';
 import { DeepSeekProvider } from '@/modules/ai/providers/deepseek.provider';
+import { assertCampaignDraftSafety } from '@/modules/ai/guardrails/ai-campaign-draft-guard';
+import { collectEvidenceRefNodes } from '@/modules/ai/guardrails/ai-evidence-validator';
+import { safeParseAiJson } from '@/modules/ai/guardrails/ai-provider-safe-parser';
+import { validateAiOutput } from '@/modules/ai/guardrails/ai-output-validator';
 
 import { BusinessDailyFallback } from './business-daily-fallback';
 import { buildBusinessDailyPrompt } from './business-daily-prompt';
@@ -33,8 +37,10 @@ export class BusinessDailyService {
       const prompt = buildBusinessDailyPrompt(baseline);
       const response = await this.deepSeek.generateStructuredResponse({ ...prompt, timeoutMs: 10_000 });
       if (!response?.content) return baseline;
-      const parsed = JSON.parse(response.content) as Partial<BusinessDailyReport>;
-      return this.mergeProviderReport(baseline, parsed, response.provider, currentUser);
+      const parsed = safeParseAiJson<Partial<BusinessDailyReport>>(response.provider, response.content);
+      if (!parsed.ok) return baseline;
+      const report = this.mergeProviderReport(baseline, parsed.value, response.provider, currentUser);
+      return validateBusinessDailyReport(report).ok ? report : baseline;
     } catch {
       return baseline;
     }
@@ -53,6 +59,17 @@ export class BusinessDailyService {
     tomorrow.setHours(0, 0, 0, 0);
     const endsAt = new Date(tomorrow);
     endsAt.setDate(endsAt.getDate() + 7);
+    const aiMetadata = {
+      aiGenerated: true,
+      aiSource: 'ai_business_daily',
+      aiRecommendationId: dto.recommendationId,
+      aiRecommendationType: dto.type ?? 'CAMPAIGN',
+      aiReason: dto.reason ?? 'AI business daily recommendation.',
+      aiEvidenceSnapshot: [{ id: `business_daily_${dto.recommendationId}`, type: 'AI_RECOMMENDATION', title: dto.title ?? dto.recommendationId }],
+      aiCreatedAt: new Date().toISOString(),
+      aiRequiresManualCompletion: true,
+    };
+    assertCampaignDraftSafety({ status: CampaignStatus.DRAFT, aiMetadata });
 
     const campaign = await this.prisma.campaign.create({
       data: {
@@ -76,6 +93,7 @@ export class BusinessDailyService {
         createdById: currentUser.id,
         structuredJson: {
           source: 'ai_business_daily',
+          aiMetadata,
           recommendationId: dto.recommendationId,
           recommendationType: dto.type,
           campaignTemplate: template,
@@ -153,6 +171,20 @@ export class BusinessDailyService {
       createdAt: campaign.createdAt.toISOString(),
     };
   }
+}
+
+export function validateBusinessDailyReport(report: BusinessDailyReport) {
+  return validateAiOutput('AI Business Daily', report, {
+    requiredFields: ['range', 'summary', 'metrics', 'evidence', 'recommendations', 'generatedAt'],
+    arrayFields: ['highlights', 'risks', 'evidence', 'recommendations'],
+    evidenceRequired: report.metrics.sales.orderCount > 0 || report.evidence.length > 0,
+    evidenceNodes: collectEvidenceRefNodes({
+      summary: report.summary,
+      highlights: report.highlights,
+      risks: report.risks,
+      recommendations: report.recommendations,
+    }),
+  });
 }
 
 export function resolveBusinessDailyRange(query: BusinessDailyQueryDto = {}): BusinessDailyRange {

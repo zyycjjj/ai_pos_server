@@ -4,6 +4,10 @@ import { AiActionPriority, AiActionSourceType, AiActionTargetType, AiActionType,
 import { StoreContextService } from '@/common/store-context.service';
 import type { AuthRequestUser } from '@/modules/auth/auth.types';
 import { DeepSeekProvider } from '@/modules/ai/providers/deepseek.provider';
+import { collectEvidenceRefNodes } from '@/modules/ai/guardrails/ai-evidence-validator';
+import { safeParseAiJson } from '@/modules/ai/guardrails/ai-provider-safe-parser';
+import { validateAiOutput } from '@/modules/ai/guardrails/ai-output-validator';
+import { validateSuggestedActions } from '@/modules/ai/guardrails/ai-suggested-action-validator';
 
 import { AiActionsService } from '../actions/ai-actions.service';
 import { BossDashboardFallback } from '../boss-dashboard/boss-dashboard-fallback';
@@ -79,6 +83,11 @@ export class BusinessQueryService {
 
     baseline = await this.applyFollowUpSideEffect(baseline, currentUser, followUp.type);
     const response = await this.tryProviderAnswer(baseline);
+    const quality = validateBusinessQueryResponse(response);
+    if (!quality.ok) {
+      const ids = await this.conversations.record({ storeId, userId: currentUser.id, conversationId: dto.conversationId, response: baseline });
+      return { ...baseline, conversationId: ids.conversationId, messageId: ids.messageId };
+    }
     const ids = await this.conversations.record({ storeId, userId: currentUser.id, conversationId: dto.conversationId, response });
     return { ...response, conversationId: ids.conversationId, messageId: ids.messageId };
   }
@@ -192,17 +201,34 @@ export class BusinessQueryService {
     try {
       const response = await this.deepSeek.generateStructuredResponse({ ...buildBusinessQueryPrompt(baseline), timeoutMs: 10_000 });
       if (!response?.content) return baseline;
-      const parsed = JSON.parse(response.content) as Partial<BusinessQueryResponse>;
-      return {
+      const parsed = safeParseAiJson<Partial<BusinessQueryResponse>>(response.provider, response.content);
+      if (!parsed.ok) return baseline;
+      const providerResponse = {
         ...baseline,
-        answer: cleanAnswer(parsed.answer, baseline.answer, baseline.evidence.map((item) => item.id)),
+        answer: cleanAnswer(parsed.value.answer, baseline.answer, baseline.evidence.map((item) => item.id)),
         fallback: false,
         generatedAt: new Date().toISOString(),
       };
+      return validateBusinessQueryResponse(providerResponse).ok ? providerResponse : baseline;
     } catch {
       return baseline;
     }
   }
+}
+
+export function validateBusinessQueryResponse(response: BusinessQueryResponse) {
+  const output = validateAiOutput('AI Business Query', response, {
+    requiredFields: ['question', 'intent', 'answer', 'evidence', 'suggestedActions', 'generatedAt'],
+    arrayFields: ['answer.details', 'answer.limitations', 'evidence', 'suggestedActions'],
+    nonEmptyTextFields: ['answer.headline', 'answer.summary'],
+    enumFields: { intent: ['SALES_ANALYSIS', 'REFUND_ANALYSIS', 'PRODUCT_ANALYSIS', 'CUSTOMER_ANALYSIS', 'CAMPAIGN_ANALYSIS', 'KITCHEN_ANALYSIS', 'TABLE_ANALYSIS', 'APPROVAL_ANALYSIS', 'GENERAL_BUSINESS_SUMMARY', 'UNSUPPORTED'] },
+    evidenceRequired: response.evidence.length > 0,
+    evidenceNodes: collectEvidenceRefNodes({ answer: response.answer, suggestedActions: response.suggestedActions }),
+  });
+  const actions = validateSuggestedActions(response.suggestedActions, response.evidence, {
+    allowedKinds: ['VIEW_REPORT', 'VIEW_PRODUCT', 'VIEW_CUSTOMER', 'VIEW_CAMPAIGNS', 'CREATE_CAMPAIGN_DRAFT', 'VIEW_KITCHEN', 'VIEW_TABLES'],
+  });
+  return { ok: output.ok && actions.ok, value: response, issues: [...output.issues, ...actions.issues] };
 }
 
 function normalizeDailyQuery(dto: BusinessQueryDtoShape, previousRange?: BusinessQueryResponse['range']): BusinessDailyQueryDto {

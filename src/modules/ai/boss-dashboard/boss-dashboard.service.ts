@@ -3,6 +3,9 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { StoreContextService } from '@/common/store-context.service';
 import type { AuthRequestUser } from '@/modules/auth/auth.types';
 import { DeepSeekProvider } from '@/modules/ai/providers/deepseek.provider';
+import { collectEvidenceRefNodes } from '@/modules/ai/guardrails/ai-evidence-validator';
+import { safeParseAiJson } from '@/modules/ai/guardrails/ai-provider-safe-parser';
+import { validateAiOutput } from '@/modules/ai/guardrails/ai-output-validator';
 
 import { BusinessDailyFallback } from '../business-daily/business-daily-fallback';
 import { BusinessDailyRepository } from '../business-daily/business-daily.repository';
@@ -35,8 +38,10 @@ export class BossDashboardService {
     try {
       const response = await this.deepSeek.generateStructuredResponse({ ...buildBossDashboardPrompt(baseline), timeoutMs: 10_000 });
       if (!response?.content) return baseline;
-      const parsed = JSON.parse(response.content) as Partial<BossDashboardReport>;
-      return this.mergeDashboard(baseline, parsed, currentUser.role);
+      const parsed = safeParseAiJson<Partial<BossDashboardReport>>(response.provider, response.content);
+      if (!parsed.ok) return baseline;
+      const report = this.mergeDashboard(baseline, parsed.value, currentUser.role);
+      return validateBossDashboardReport(report).ok ? report : baseline;
     } catch {
       return baseline;
     }
@@ -56,8 +61,10 @@ export class BossDashboardService {
     try {
       const response = await this.deepSeek.generateStructuredResponse({ ...buildWeeklyInsightPrompt(baseline), timeoutMs: 10_000 });
       if (!response?.content) return baseline;
-      const parsed = JSON.parse(response.content) as Partial<WeeklyInsightReport>;
-      return this.mergeWeekly(baseline, parsed, currentUser.role);
+      const parsed = safeParseAiJson<Partial<WeeklyInsightReport>>(response.provider, response.content);
+      if (!parsed.ok) return baseline;
+      const report = this.mergeWeekly(baseline, parsed.value, currentUser.role);
+      return validateWeeklyInsightReport(report).ok ? report : baseline;
     } catch {
       return baseline;
     }
@@ -90,6 +97,37 @@ export class BossDashboardService {
       generatedAt: new Date().toISOString(),
     };
   }
+}
+
+export function validateBossDashboardReport(report: BossDashboardReport) {
+  return validateAiOutput('AI Boss Dashboard', report, {
+    requiredFields: ['range', 'headline', 'healthScore', 'scoreBreakdown', 'trend', 'sections', 'evidence', 'generatedAt'],
+    arrayFields: ['insights', 'risks', 'nextActions', 'evidence'],
+    nonEmptyTextFields: ['headline'],
+    evidenceRequired: report.evidence.length > 0,
+    evidenceNodes: collectEvidenceRefNodes({
+      insights: report.insights,
+      risks: report.risks,
+      nextActions: report.nextActions,
+    }),
+  });
+}
+
+export function validateWeeklyInsightReport(report: WeeklyInsightReport) {
+  return validateAiOutput('AI Weekly Insight', report, {
+    requiredFields: ['week', 'headline', 'evidence', 'generatedAt'],
+    arrayFields: ['summary', 'highlights', 'risks', 'trendExplanations', 'nextWeekActions', 'campaignSuggestions', 'evidence'],
+    nonEmptyTextFields: ['headline'],
+    evidenceRequired: report.evidence.length > 0,
+    evidenceNodes: collectEvidenceRefNodes({
+      summary: report.summary,
+      highlights: report.highlights,
+      risks: report.risks,
+      trendExplanations: report.trendExplanations,
+      nextWeekActions: report.nextWeekActions,
+      campaignSuggestions: report.campaignSuggestions,
+    }),
+  });
 }
 
 function cleanHeadline(value: unknown, fallback: string) {

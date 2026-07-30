@@ -3,6 +3,7 @@ import { AiActionPriority, AiActionSourceType, AiActionTargetType, AiActionType 
 
 import type { CreateAiActionDto } from './dto/ai-action.dto';
 import type { AiActionEvidence, NormalizedAiActionInput } from './ai-actions.types';
+import { isSafeInternalTargetUrl } from '../guardrails/ai-suggested-action-validator';
 
 const sourceTypes = new Set(Object.values(AiActionSourceType));
 const actionTypes = new Set(Object.values(AiActionType));
@@ -86,8 +87,7 @@ function normalizeEvidence(input: unknown): AiActionEvidence[] {
 function normalizeTargetUrl(input: unknown) {
   const value = optionalText(input, 240);
   if (!value) return null;
-  if (!value.startsWith('/')) throw new BadRequestException('AI action targetUrl must be an internal path.');
-  if (value.startsWith('/api') || value.includes('://')) throw new BadRequestException('AI action targetUrl must not point to an API or external URL.');
+  if (!isSafeInternalTargetUrl(value)) throw new BadRequestException('AI action targetUrl must be an internal path and must not point to an API or external URL.');
   return value;
 }
 
