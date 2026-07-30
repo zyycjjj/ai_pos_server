@@ -11,6 +11,8 @@ import { BusinessDailyController } from './business-daily/business-daily.control
 import { BusinessDailyFallback } from './business-daily/business-daily-fallback';
 import { BusinessDailyRepository } from './business-daily/business-daily.repository';
 import { BusinessDailyService } from './business-daily/business-daily.service';
+import { BossDashboardFallback } from './boss-dashboard/boss-dashboard-fallback';
+import { BossDashboardService } from './boss-dashboard/boss-dashboard.service';
 import { CampaignRecommendationFallback } from './campaign-recommendation/campaign-recommendation-fallback';
 import { CampaignRecommendationService } from './campaign-recommendation/campaign-recommendation.service';
 import { CopilotApplicationService } from './copilot/copilot.application.service';
@@ -39,6 +41,8 @@ import { DeterministicFallbackProvider } from './providers/deterministic-fallbac
     BusinessDailyService,
     BusinessDailyRepository,
     BusinessDailyFallback,
+    BossDashboardService,
+    BossDashboardFallback,
     CampaignRecommendationService,
     CampaignRecommendationFallback,
     DeepSeekProvider,

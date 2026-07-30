@@ -9,6 +9,8 @@ import { RolesGuard } from '@/modules/auth/roles.guard';
 
 import { BusinessDailyService } from './business-daily.service';
 import { BusinessDailyQueryDto, CreateCampaignDraftFromRecommendationDto } from './dto/business-daily.dto';
+import { BossDashboardService } from '../boss-dashboard/boss-dashboard.service';
+import { BossDashboardQueryDto, WeeklyInsightQueryDto } from '../boss-dashboard/dto/boss-dashboard.dto';
 import { CampaignRecommendationService } from '../campaign-recommendation/campaign-recommendation.service';
 
 @ApiTags('admin-ai-business-daily')
@@ -19,6 +21,7 @@ export class BusinessDailyController {
   constructor(
     private readonly service: BusinessDailyService,
     private readonly campaignRecommendations: CampaignRecommendationService,
+    private readonly bossDashboard: BossDashboardService,
   ) {}
 
   @Get('business-daily')
@@ -37,5 +40,17 @@ export class BusinessDailyController {
   @ApiOperation({ summary: 'Create a DRAFT campaign from an AI recommendation.' })
   createCampaignDraft(@Body() dto: CreateCampaignDraftFromRecommendationDto, @CurrentUser() currentUser: AuthRequestUser) {
     return this.campaignRecommendations.createDraft(dto, currentUser);
+  }
+
+  @Get('boss-dashboard')
+  @ApiOperation({ summary: 'Generate an evidence-grounded AI boss dashboard.' })
+  getBossDashboard(@Query() query: BossDashboardQueryDto, @CurrentUser() currentUser: AuthRequestUser) {
+    return this.bossDashboard.getDashboard(query, currentUser);
+  }
+
+  @Get('weekly-insight')
+  @ApiOperation({ summary: 'Generate an evidence-grounded AI weekly insight.' })
+  getWeeklyInsight(@Query() query: WeeklyInsightQueryDto, @CurrentUser() currentUser: AuthRequestUser) {
+    return this.bossDashboard.getWeeklyInsight(query, currentUser);
   }
 }
